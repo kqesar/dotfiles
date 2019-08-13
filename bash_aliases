@@ -1,0 +1,9 @@
+# alias bashconfig="mate ~/.bashrc"
+# alias ohmybash="mate ~/.oh-my-bash"
+alias vimrc='vim ~/.vimrc'
+alias bashrc='vim ~/.bashrc'
+alias sourcebash='source ~/.bashrc'
+alias grep='grep --color'
+alias ls='ls --color'
+alias mkdir='mkdir -pv'
+alias bitwarden='./Bitwarden.AppImage'
