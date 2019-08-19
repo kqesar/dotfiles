@@ -3,7 +3,7 @@ export OSH=/home/kqesar/.oh-my-bash
 
 # Set name of the theme to load. Optionally, if you set this to "random"
 # it'll load a random theme each time that oh-my-bash is loaded.
-OSH_THEME="powerline"
+OSH_THEME="agnoster"
 
 # Uncomment the following line to use case-sensitive completion.
 # CASE_SENSITIVE="true"
@@ -90,7 +90,9 @@ export ARCHFLAGS="-arch x86_64"
 
 # ssh
 export SSH_KEY_PATH="~/.ssh/rsa_id"
-export PATH="$PATH:~/.node/bin/"
+export PATH=$PATH:~/.node/bin/:/usr/local/go/bin
+export GOPATH=$HOME/Projets/go
+
 # Set personal aliases, overriding those provided by oh-my-bash libs,
 # plugins, and themes. Aliases can be placed here, though oh-my-bash
 # users are encouraged to define aliases within the OSH_CUSTOM folder.

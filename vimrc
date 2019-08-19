@@ -42,6 +42,13 @@ inoremap [ []
 inoremap ( ()
 inoremap { {}
 
+function! Test()
+    let files = system("ls")
+    for file in files
+    endfor
+endfunction
+
+map <F5> Test()
 execute pathogen#infect()
 filetype plugin indent on
 syntax on
