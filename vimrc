@@ -89,6 +89,7 @@ NeoBundle 'ervandew/supertab'
 NeoBundle 'marijnh/tern_for_vim'
 NeoBundle 'grep.vim'
 NeoBundle 'airblade/vim-rooter'
+NeoBundle 'leafgarland/typescript-vim'
 
 " You can specify revision/branch/tag.
 NeoBundle 'Shougo/vimshell', { 'rev' : '3787e5' }
@@ -119,6 +120,9 @@ let g:airline_powerline_fonts = 1
 let g:airline_theme='molokai'
 let g:airline#extensions#tabline#enabled = 1
 
+"Typescript config
+let g:typescript_indent_disable = 1
+
 "Conf ternjs
 let tern#is_show_argument_hints_enabled=1
 function! CompileScss()
@@ -126,10 +130,14 @@ function! CompileScss()
     let g:css_folder = 'dist/css/'
     execute "!sass " . g:scss_folder . "main.scss " . g:css_folder . "style.css"
 endfunction
-autocmd BufWritePost *.scss :call CompileScss()
-autocmd BufWritePost ~/.bashrc :!source ~/.bashrc<CR>
-autocmd BufWritePost *.asm :!make<CR>
+
+autocmd BufWritePost ~/.bashrc :echom system("source ~/.bashrc")
+
+augroup scss
+    autocmd BufWritePost *.scss :call CompileScss()
+augroup END
 
 augroup assembly
+    autocmd BufWritePost *.asm :!make<CR>
     autocmd FileType asm map <F1> :echom system("make")<CR>
 augroup END
