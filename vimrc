@@ -29,6 +29,9 @@ set autowrite
 set foldmethod=syntax
 set nofoldenable
 set incsearch
+set hidden
+set backspace=indent,eol,start
+
 filetype plugin indent on
 syntax on
 noremap te :tabnew
@@ -103,21 +106,14 @@ NeoBundle 'fatih/vim-go'
 NeoBundle 'lumiliet/vim-twig'
 NeoBundle 'vim-ruby/vim-ruby'
 NeoBundle 'tpope/vim-rails'
-NeoBundle 'hdima/python-syntax'
 NeoBundle 'tbastos/vim-lua'
 NeoBundle 'tpope/vim-surround'
-NeoBundle 'kchmck/vim-coffee-script'
 NeoBundle 'easymotion/vim-easymotion'
 NeoBundle 'yggdroot/indentline'
-NeoBundle 'rdnetto/YCM-Generator'
-NeoBundle 'myhere/vim-nodejs-complete'
-NeoBundle 'moll/vim-node'
 NeoBundle 'rust-lang/rust.vim'
 NeoBundle 'racer-rust/vim-racer'
 NeoBundle 'ludovicchabant/vim-gutentags'
 NeoBundle 'klen/python-mode'
-NeoBundle 'ryanoasis/vim-devicons'
-NeoBundle 'tiagofumo/vim-nerdtree-syntax-highlight'
 NeoBundle 'Shougo/vimshell', { 'rev' : '3787e5' }
 call neobundle#end()
 
