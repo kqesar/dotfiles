@@ -94,7 +94,6 @@ export SSH_KEY_PATH="~/.ssh/rsa_id"
 export PATH=$PATH:~/.node/bin/:/usr/local/go/bin
 export GOPATH=$HOME/Projets/go
 
-alias snes9x='~/snes9x/snes9x-gtk'
 # Set personal aliases, overriding those provided by oh-my-bash libs,
 # plugins, and themes. Aliases can be placed here, though oh-my-bash
 # users are encouraged to define aliases within the OSH_CUSTOM folder.

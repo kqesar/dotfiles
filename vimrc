@@ -19,16 +19,18 @@ set hlsearch
 set showmatch
 set encoding=UTF-8
 set noswapfile
-" Use spaces instead of tabs
+let mapleader=","
 set expandtab
-
-" Be smart when using tabs ;)
 set smarttab
-
-" 1 tab == 4 spaces
 set shiftwidth=4
 set tabstop=4
-
+set autoread
+set autowrite
+set foldmethod=syntax
+set nofoldenable
+set incsearch
+filetype plugin indent on
+syntax on
 noremap te :tabnew
 noremap <C-h> gT
 noremap <C-l> gt
@@ -45,16 +47,23 @@ inoremap ( ()<Left>
 inoremap { {}<Left>
 inoremap " ""<Left>
 inoremap ' ''<Left>
-noremap <C-w> <C-w>w
 noremap <C-h> <C-w>h
 noremap <C-l> <C-w>l
 
+"Verification si NeoBundle est installé"
+if !isdirectory(expand("~/.vim/bundle/neobundle.vim"))
+    echom "Installation de NeoBundle"
+    echom system("curl https://raw.githubusercontent.com/Shougo/neobundle.vim/master/bin/install.sh > install.sh")
+    echom system("sh ./install.sh") 
+    echom "Fin de l'installation de NeoBundle"
+endif
+
 "NeoBundle Scripts-----------------------------
 " Required:
-set runtimepath+=/home/kqesar/.vim/bundle/neobundle.vim/
+set runtimepath+=~/.vim/bundle/neobundle.vim/
 
 " Required:
-call neobundle#begin(expand('/home/kqesar/.vim/bundle'))
+call neobundle#begin(expand('~/.vim/bundle'))
 
 " Let NeoBundle manage NeoBundle
 " Required:
@@ -90,27 +99,39 @@ NeoBundle 'marijnh/tern_for_vim'
 NeoBundle 'grep.vim'
 NeoBundle 'airblade/vim-rooter'
 NeoBundle 'leafgarland/typescript-vim'
-
-" You can specify revision/branch/tag.
+NeoBundle 'fatih/vim-go'
+NeoBundle 'lumiliet/vim-twig'
+NeoBundle 'vim-ruby/vim-ruby'
+NeoBundle 'tpope/vim-rails'
+NeoBundle 'hdima/python-syntax'
+NeoBundle 'tbastos/vim-lua'
+NeoBundle 'tpope/vim-surround'
+NeoBundle 'kchmck/vim-coffee-script'
+NeoBundle 'easymotion/vim-easymotion'
+NeoBundle 'yggdroot/indentline'
+NeoBundle 'rdnetto/YCM-Generator'
+NeoBundle 'myhere/vim-nodejs-complete'
+NeoBundle 'moll/vim-node'
+NeoBundle 'rust-lang/rust.vim'
+NeoBundle 'racer-rust/vim-racer'
+NeoBundle 'ludovicchabant/vim-gutentags'
+NeoBundle 'klen/python-mode'
+NeoBundle 'ryanoasis/vim-devicons'
+NeoBundle 'tiagofumo/vim-nerdtree-syntax-highlight'
 NeoBundle 'Shougo/vimshell', { 'rev' : '3787e5' }
-
 call neobundle#end()
-filetype plugin indent on
-syntax on
-filetype plugin on
-
-
 
 " If there are uninstalled bundles found on startup,
 " this will conveniently prompt you to install them.
 NeoBundleCheck
 "End NeoBundle Scripts-------------------------
 
-
 "CPP Syntax
 let g:cpp_class_scope_highlight = 1
 let g:cpp_member_variable_highlight = 1
 let g:cpp_class_decl_highlight = 1
+let g:cpp_experimental_simple_template_highlight = 1
+let g:cpp_concepts_highlight = 1
 
 "Javascript librairies syntax
 let g:used_javascript_libs = 'underscore,backbone,jquery,angularjs,angularui,angularuirouter,vue,d3²,react'
@@ -125,19 +146,67 @@ let g:typescript_indent_disable = 1
 
 "Conf ternjs
 let tern#is_show_argument_hints_enabled=1
-function! CompileScss()
-    let g:scss_folder = 'src/scss/'
-    let g:css_folder = 'dist/css/'
-    execute "!sass " . g:scss_folder . "main.scss " . g:css_folder . "style.css"
+
+"Indent guide"
+let g:indentLine_enabled = 1
+let g:indentLine_char_list = ['|', '¦', '┆', '┊']
+
+"Conf vim-go
+" go-vim plugin specific commands
+" Also run `goimports` on your current file on every save
+" Might be be slow on large codebases, if so, just comment it out
+let g:go_fmt_command = "goimports"
+let g:go_autodetect_gopath = 1
+let g:go_list_type = "quickfix"
+
+let g:go_highlight_types = 1
+let g:go_highlight_fields = 1
+let g:go_highlight_functions = 1
+let g:go_highlight_function_calls = 1
+let g:go_highlight_extra_types = 1
+let g:go_highlight_generate_tags = 1
+
+" Status line types/signatures.
+let g:go_auto_type_info = 1
+
+"YCM"
+let g:ycm_global_ycm_extra_conf = "~/.vim/bundle/youcompleteme/third_party/ycmd/cpp/ycm/.ycm_extra_conf.py"
+let g:ycm_auto_trigger = 1
+let g:ycm_complete_in_strings = 1
+let g:ycm_complete_in_comments = 1
+let g:ycm_min_num_of_chars_for_completion = 2
+
+"Python config
+let g:python_highlight_all = 1
+
+"Syntastic"
+let g:syntastic_always_populate_loc_list = 1
+let g:syntastic_auto_loc_list = 1
+let g:syntastic_check_on_open = 1
+let g:syntastic_check_on_wq = 0
+
+function! EditBashRc()
+    :e ~/.bashrc
 endfunction
 
-autocmd BufWritePost ~/.bashrc :echom system("source ~/.bashrc")
+function! EditZshrc()
+    :e ~/.zshrc
+endfunction
 
-augroup scss
-    autocmd BufWritePost *.scss :call CompileScss()
-augroup END
+function! EditVimRc()
+    :e ~/.vimrc
+endfunction
 
 augroup assembly
-    autocmd BufWritePost *.asm :!make<CR>
+    autocmd!
+    autocmd BufWritePost *.asm :echom system("make")<CR>
     autocmd FileType asm map <F1> :echom system("make")<CR>
 augroup END
+
+augroup golang
+    autocmd!
+    autocmd BufWritePost *.go :GoBuild<CR>
+    autocmd FileType go  noremap <F1> :GoBuild<CR>
+    autocmd FileType go  noremap <F2> :GoRun<CR>
+augroup END
+
