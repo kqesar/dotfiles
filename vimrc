@@ -114,6 +114,9 @@ NeoBundle 'rust-lang/rust.vim'
 NeoBundle 'racer-rust/vim-racer'
 NeoBundle 'ludovicchabant/vim-gutentags'
 NeoBundle 'klen/python-mode'
+NeoBundle 'stanangeloff/php.vim'
+NeoBundle 'ludovicchabant/vim-gutentags'
+NeoBundle 'amiorin/vim-project'
 NeoBundle 'Shougo/vimshell', { 'rev' : '3787e5' }
 call neobundle#end()
 
@@ -211,5 +214,19 @@ augroup END
 augroup java
     :so ~/.vim/config/java.vim
 augroup END
+augroup php
+    let g:php_var_selector_is_identifier = 1
+    " Put this function at the very end of your vimrc file.
 
+    function! PhpSyntaxOverride()
+    " Put snippet overrides in this function.
+        hi! link phpDocTags phpDefine
+        hi! link phpDocParam phpType
+    endfunction
+
+    augroup phpSyntaxOverride
+        autocmd!
+        autocmd FileType php call PhpSyntaxOverride()
+    augroup END
+augroup END
 set tags+=~/tags/gtk3.0.tags
