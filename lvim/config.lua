@@ -62,4 +62,4 @@
 --   end,
 --   {})
 --
-require('lua/user/global')
+reload "user.global"
