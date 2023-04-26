@@ -62,4 +62,6 @@
 --   end,
 --   {})
 --
-reload "user.global"
+require "user.global"
+require "user.options"
+require "user.keymaps"
