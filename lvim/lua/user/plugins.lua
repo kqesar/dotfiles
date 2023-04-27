@@ -6,5 +6,11 @@ lvim.plugins = {
   },
   {
     "folke/tokyonight.nvim",
+  },
+  {
+    'iamcco/markdown-preview.nvim',
+    config = function()
+      vim.fn["mkdp#util#install"]()
+    end,
   }
 }
