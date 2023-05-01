@@ -13,7 +13,7 @@ formatters.setup {
   {
     command = "prettier",
     extra_args = { "--print-width", "100" },
-    filetypes = { "typescript", "typescriptreact" },
+    filetypes = { "typescript", "typescriptreact", "javascript", "vue", "svelte" },
   },
 }
 local linters = require "lvim.lsp.null-ls.linters"
@@ -24,6 +24,6 @@ linters.setup {
   --   args = { "--severity", "warning" },
   -- },
   {
-    command = "eslint", filetypes = { "typescript", "javascript", "vue", "typescriptreact" }
+    command = "eslint", filetypes = { "typescript", "javascript", "vue", "typescriptreact", "svelte" }
   }
 }
