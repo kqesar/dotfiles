@@ -11,16 +11,6 @@ completions=(
   kubectl
   defaults
 )
-
-
-# Which aliases would you like to load? (aliases can be found in ~/.oh-my-bash/aliases/*)
-# Custom aliases may be added to ~/.oh-my-bash/custom/aliases/
-# Example format: aliases=(vagrant composer git-avh)
-# Add wisely, as too many aliases slow down shell startup.
-aliases=(
-general
-)
-
 # Which plugins would you like to load? (plugins can be found in ~/.oh-my-bash/plugins/*)
 # Custom plugins may be added to ~/.oh-my-bash/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
