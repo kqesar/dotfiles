@@ -19,6 +19,8 @@ alias jssrc='cd ~/wd/js'
 alias javasrc='cd ~/wd/java'
 alias pokemonrandomizer='cd ~/pokemon/randomizer'
 alias dotfiles='cd ~/dotfiles'
+alias lg='lazygit'
+alias lv='lvim'
 
 #alias to install the last version of lunarvim (nightlybuild on master)
 alias installLunarVim='bash <(curl -s https://raw.githubusercontent.com/lunarvim/lunarvim/master/utils/installer/install.sh)'
