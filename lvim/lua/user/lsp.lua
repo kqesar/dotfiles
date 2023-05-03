@@ -2,7 +2,7 @@ lvim.format_on_save = {
   enabled = true,
 }
 lvim.lint_on_save = true
-lvim.lsp.diagnostics.update_in_insert = true
+vim.diagnostic.config({ update_in_insert = true })
 lvim.lsp.document_highlight = true
 lvim.lsp.installer.setup.automatic_installation = true
 
