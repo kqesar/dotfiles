@@ -10,6 +10,8 @@ lvim.keys.normal_mode["<C-d>"] = "yyP"
 -- keymaps for insert mode
 lvim.keys.insert_mode["<C-d>"] = "<Esc>yyPi"
 lvim.keys.insert_mode["<C-d>"] = "<Esc>yyPi"
+lvim.keys.insert_mode["<C-s>"] = "<Esc>:w<cr>i<Right>" -- Save in insert mode at current cursor
+lvim.keys.insert_mode["<C-x>"] = "<Esc>:bd<CR>"        -- Close current buffer in insert mode
 
 -- keymaps with leader key
 lvim.leader = "space"
