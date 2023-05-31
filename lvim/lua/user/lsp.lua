@@ -10,11 +10,11 @@ lvim.lsp.installer.setup.automatic_installation = true
 local formatters = require "lvim.lsp.null-ls.formatters"
 formatters.setup {
   { command = "stylua", filetypes = { "lua" } },
-  {
-    command = "prettier",
-    extra_args = { "--print-width", "100" },
-    filetypes = { "typescript", "typescriptreact", "javascript", "vue", "svelte" },
-  },
+  -- {
+  --   command = "prettier",
+  --   extra_args = { "--print-width", "100" },
+  --   filetypes = { "typescript", "typescriptreact", "javascript", "vue", "svelte" },
+  -- },
 }
 local linters = require "lvim.lsp.null-ls.linters"
 linters.setup {
