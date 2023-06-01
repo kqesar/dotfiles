@@ -1,7 +1,8 @@
 -- general
 lvim.log.level = "info"
 lvim.builtin.treesitter.auto_install = true
-lvim.colorscheme = "lunar"
+lvim.colorscheme = "tokyonight"
+lvim.builtin.lualine.style = 'lvim'
 lvim.builtin.alpha.active = true
 lvim.builtin.alpha.mode = "dashboard"
 lvim.builtin.terminal.active = true
