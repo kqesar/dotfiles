@@ -37,4 +37,7 @@ export ARCHFLAGS="-arch x86_64"
 
 # ssh
 export SSH_KEY_PATH="$HOME/.ssh/rsa_id"
-source ~/dotfiles/.bash_aliases
+
+source "$HOME/dotfiles/.bash_aliases"
+source "$HOME/dotfiles/z.sh" 
+
