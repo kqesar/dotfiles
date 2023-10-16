@@ -1,4 +1,10 @@
 #!/bin/bash
+
+if [ "$(which lvim | wc -l)" -eq 0 ]; then
+  echo 'LunarVim is not installed, installing...'
+  LV_BRANCH='release-1.3/neovim-0.9' bash <(curl -s https://raw.githubusercontent.com/LunarVim/LunarVim/release-1.3/neovim-0.9/utils/installer/install.sh)
+fi
+
 SOURCE_DOTFILE="source ~/dotfiles/.bashrc"
 PROFILE="$HOME/.bashrc"
 if [ -f "$HOME/.zshrc" ]; then
