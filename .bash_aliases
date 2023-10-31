@@ -15,3 +15,14 @@ alias c='clear'
 
 #alias to install the last version of lunarvim (nightlybuild on master)
 alias installLunarVim='bash <(curl -s https://raw.githubusercontent.com/lunarvim/lunarvim/master/utils/installer/install.sh)'
+
+#function to update neovim with nightly reliease
+function updateNeovim () {
+    cd $HOME
+    wget https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz
+    rm -Rf nvim
+    tar -xvf nvim-linux64.tar.gz
+    mv  nvim-linux64 nvim
+    rm -Rf nvim-linux64.tar.gz
+    cd -
+}

@@ -1,12 +1,5 @@
 #!/bin/bash
 
-if [ "$(which lvim | wc -l)" -eq 0 ]; then
-  echo 'LunarVim is not installed, installing...'
-  curl -s https://raw.githubusercontent.com/lunarvim/lunarvim/master/utils/installer/install.sh > install_lunar.sh
-  sh install_lunar.sh
-  rm install_lunar.sh
-fi
-
 if [ "$(which fzf | wc -l)" -eq 0 ]; then
   echo 'fzf is not installed, installing...'
   git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
