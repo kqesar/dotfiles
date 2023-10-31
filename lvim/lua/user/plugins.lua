@@ -5,6 +5,15 @@ lvim.plugins = {
     cmd = "TroubleToggle",
   },
   {
+    "brenoprata10/nvim-highlight-colors",
+    config = function ()
+      require("nvim-highlight-colors").setup({
+        render = 'first_column',
+        enable_tailwind = true,
+      })
+    end
+  },
+  {
     "folke/tokyonight.nvim",
   },
   {
@@ -14,3 +23,5 @@ lvim.plugins = {
     end,
   }
 }
+
+require("nvim-highlight-colors").toggle()
