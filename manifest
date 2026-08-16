@@ -1,0 +1,46 @@
+# Single source of truth for what is shared between machines.
+#
+# Format:  <source relative to repo root>   <target relative to $HOME>
+# Blank lines and lines starting with # are ignored. Columns are whitespace
+# separated, so neither path may contain spaces.
+#
+# This is a WHITELIST: `dots push` refuses to stage any tracked path outside
+# it, and `dots link`/`dots doctor` only ever touch these targets. Adding a
+# file to the repo is not enough to share it — it must be listed here.
+#
+# Prefer linking a whole directory over its individual files:
+#   - fewer links to keep alive,
+#   - a new file inside it is shared automatically,
+#   - directories are immune to the atomic-rewrite breakage that turns a
+#     symlinked *file* back into a regular file (see README).
+
+# --- Claude Code ----------------------------------------------------------
+home/claude/CLAUDE.md        .claude/CLAUDE.md
+home/claude/RTK.md           .claude/RTK.md
+home/claude/rules            .claude/rules
+home/claude/skills           .claude/skills
+# Claude Code rewrites this file itself (/config, /model). It is linked
+# anyway, and `dots doctor` repairs the link when that breaks it.
+home/claude/settings.json    .claude/settings.json
+
+# --- Shells ---------------------------------------------------------------
+home/fish/config.fish        .config/fish/config.fish
+home/zsh/zshrc               .zshrc
+home/bash/bashrc             .bashrc
+
+# Hand-written fish helpers: nvm-sh bridged into pure fish. Worth sharing —
+# they would be tedious to rewrite. Linked file by file on purpose: fisher
+# drops its own plugin code into the same functions/ directory, and plugin
+# code has no business being versioned here.
+home/fish/functions/__nvm_auto.fish          .config/fish/functions/__nvm_auto.fish
+home/fish/functions/__nvm_default_bin.fish   .config/fish/functions/__nvm_default_bin.fish
+home/fish/functions/__nvm_resolve_spec.fish  .config/fish/functions/__nvm_resolve_spec.fish
+home/fish/functions/nvm.fish                 .config/fish/functions/nvm.fish
+# fisher's plugin list — the fish equivalent of a lockfile.
+home/fish/fish_plugins       .config/fish/fish_plugins
+
+# --- Tools ----------------------------------------------------------------
+home/git/gitconfig           .gitconfig
+home/tmux/tmux.conf          .tmux.conf
+home/tmux/tmux.conf.local    .tmux.conf.local
+home/lvim                    .config/lvim

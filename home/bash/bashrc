@@ -1,0 +1,29 @@
+#
+# ~/.bashrc — shared across machines.
+#
+
+# Nothing below this line runs for non-interactive shells (scp, rsync, ssh
+# command execution). Everything else in this file depends on that.
+[[ $- != *i* ]] && return
+
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
+PS1='[\u@\h \W]\$ '
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+# --- machine-local overrides ---------------------------------------------
+# Everything specific to THIS machine goes here. Never versioned.
+[ -f "$HOME/.config/dotfiles/local.sh" ] && . "$HOME/.config/dotfiles/local.sh"
+
+# >>> dotfiles >>>
+# Checks whether the other machine pushed anything. Costs about a millisecond
+# and never touches the network — see shell/hook.sh.
+# Safe here specifically because the non-interactive return above already ran.
+export DOTFILES_DIR="$HOME/dotfiles"
+if [ -f "$DOTFILES_DIR/shell/hook.sh" ]; then
+	sh "$DOTFILES_DIR/shell/hook.sh"
+fi
+# <<< dotfiles <<<

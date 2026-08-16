@@ -1,27 +1,50 @@
+# Safety net only — the real whitelist is `manifest`.
+# `dots push` refuses to stage any path that is not listed there. This file is
+# the second line of defence, for the day someone runs a raw `git add -A`.
+
+# --- Claude Code: never publish -------------------------------------------
+# OAuth token for the Claude account.
+.credentials.json
+*.credentials*
+# Machine-local settings: absolute paths, per-session permission grants.
+settings.local.json
+# Full transcripts of every session (13 MB here), including anything pasted in.
+projects/
+# Prompt history, environment dumps, cached file contents.
+history.jsonl
+shell-snapshots/
+file-history/
+paste-cache/
+session-env/
+sessions/
+statsig/
+todos/
+tasks/
+plans/
+backups/
+cache/
+downloads/
+stats-cache.json
+.last-cleanup
+.last-update-result.json
+# Reinstallable, 7 MB.
+plugins/
+
+# --- Generic secrets -------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.p12
+*.pfx
+.netrc
+
+# --- Noise -----------------------------------------------------------------
 *.swp
-node_modules/
-.idea/
-dist/
-vendor/
+*~
 .DS_Store
-
-#local env files
-.env.local
-.env.*.local
-
-# Log files
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Editor directories and files
-.idea
-.vscode
-*.iml
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
+node_modules/
 lazy-lock.json

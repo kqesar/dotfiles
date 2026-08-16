@@ -1,0 +1,585 @@
+#!/usr/bin/env sh
+# dots — manage the dotfiles repo shared between machines.
+#
+#   dots status    what is out of sync, locally and against the remote
+#   dots sync      pull the other machine's changes (fast-forward only)
+#   dots push      review, commit and publish local changes
+#   dots link      (re)create the symlinks described by `manifest`
+#   dots doctor    diagnose and repair the installation
+#
+# Design notes worth knowing before editing:
+#
+#   - Nothing here commits automatically. `push` is interactive by design:
+#     the repo is public, and that prompt is the moment you get to see what
+#     is about to leave the machine.
+#   - Nothing here merges. Fast-forward or refuse, always. A merge conflict
+#     resolved by a background job is a config silently broken on two
+#     machines at once.
+#   - Every conditional is a full `if` block rather than `[ x ] && cmd`,
+#     because under `set -e` a trailing `&&` that evaluates false ends the
+#     script.
+
+set -eu
+
+# --- locate the repo ------------------------------------------------------
+# $0 is normally ~/.local/bin/dots, itself a symlink into the repo, so it has
+# to be resolved before dirname is any use.
+
+_self=$0
+if command -v readlink >/dev/null 2>&1; then
+	_resolved=$(readlink -f "$_self" 2>/dev/null || true)
+	if [ -n "$_resolved" ]; then _self=$_resolved; fi
+fi
+DOTFILES_DIR=${DOTFILES_DIR:-$(CDPATH='' cd -- "$(dirname -- "$_self")/.." && pwd)}
+export DOTFILES_DIR
+
+# shellcheck source=../lib/common.sh
+. "$DOTFILES_DIR/lib/common.sh"
+
+# Repo machinery: paths that legitimately live here without being a linked
+# config file. Anything outside this set and the manifest is not committable.
+INFRA_PATHS='bin/ lib/ shell/ legacy/ manifest .gitignore README.md install.sh'
+
+# Set by cmd_link before the loop so every link_one call in the pipeline
+# subshell agrees on one backup directory.
+DOTS_BACKUP=${DOTS_BACKUP:-}
+export DOTS_BACKUP
+
+# --- locking --------------------------------------------------------------
+# mkdir is atomic on POSIX filesystems: it either creates the directory or it
+# fails, with no window in between. That makes it the classic race-free lock
+# primitive, and it needs no extra tooling.
+
+lock_acquire() {
+	mkdir -p "$DOTFILES_CACHE" 2>/dev/null || return 1
+	if mkdir "$DOTFILES_LOCK" 2>/dev/null; then
+		return 0
+	fi
+	# A lock older than the cap belongs to a process that died holding it.
+	if [ -d "$DOTFILES_LOCK" ]; then
+		_lock_mtime=$(stat -c %Y "$DOTFILES_LOCK" 2>/dev/null || echo 0)
+		_age=$(($(date +%s) - _lock_mtime))
+		if [ "$_age" -gt "$DOTFILES_LOCK_MAX_AGE" ]; then
+			rmdir "$DOTFILES_LOCK" 2>/dev/null || true
+			if mkdir "$DOTFILES_LOCK" 2>/dev/null; then return 0; fi
+		fi
+	fi
+	return 1
+}
+
+lock_release() { rmdir "$DOTFILES_LOCK" 2>/dev/null || true; }
+
+# mkdir here, not only in lock_acquire: on a freshly installed machine the
+# background job has never run, so the cache directory does not exist yet and
+# `dots push` would otherwise succeed and then exit 1 on its very last line.
+stamp_now() {
+	mkdir -p "$DOTFILES_CACHE" 2>/dev/null || true
+	date +%s >"$DOTFILES_LAST_CHECK"
+}
+
+# The background job is detached and silent by design, which makes it awkward
+# to observe when something looks wrong. DOTFILES_DEBUG=1 gives it a log
+# without changing any of its behaviour.
+refresh_log() {
+	if [ "${DOTFILES_DEBUG:-0}" = 1 ]; then
+		printf '%s [%s] %s\n' "$(date +%H:%M:%S)" "$$" "$*" >>"$DOTFILES_CACHE/debug.log"
+	fi
+}
+
+# Number of manifest entries whose link is not in the expected state.
+count_bad_links() {
+	read_manifest | while read -r _s _d; do
+		if [ "$(link_state "$_s" "$_d")" != ok ]; then printf 'x\n'; fi
+	done | wc -l | tr -d ' '
+}
+
+# Split "<behind> <ahead>" into the two globals used by the callers.
+GAP_BEHIND=0
+GAP_AHEAD=0
+read_gap() {
+	_g=$(upstream_gap) || return 1
+	GAP_BEHIND=${_g% *}
+	GAP_AHEAD=${_g#* }
+	return 0
+}
+
+# --- __refresh: the detached background job -------------------------------
+# Never prints to a terminal. Its whole output is the status cache file, read
+# by the shell hook at the *next* shell start.
+
+cmd_refresh() {
+	# Contended runs exit here without doing anything: ten terminals opened at
+	# once means one fetch, not ten.
+	lock_acquire || {
+		refresh_log "skipped, lock held"
+		exit 0
+	}
+	trap 'lock_release' EXIT INT TERM
+	refresh_log "acquired lock"
+
+	_out=''
+	_nl='
+'
+
+	if git_net fetch --quiet --prune origin 2>/dev/null; then
+		refresh_log "fetched"
+
+		if read_gap; then
+			if [ "$GAP_BEHIND" -gt 0 ] && [ "$GAP_AHEAD" -gt 0 ]; then
+				_out="${_out}warn|diverged: $GAP_BEHIND remote / $GAP_AHEAD local commit(s) — run \`dots sync\`$_nl"
+			elif [ "$GAP_BEHIND" -gt 0 ]; then
+				if worktree_is_clean; then
+					if dgit merge --ff-only --quiet '@{u}' 2>/dev/null; then
+						_out="${_out}up|updated, $GAP_BEHIND commit(s) pulled$_nl"
+					else
+						_out="${_out}warn|$GAP_BEHIND commit(s) behind, fast-forward failed — run \`dots sync\`$_nl"
+					fi
+				else
+					_out="${_out}warn|$GAP_BEHIND commit(s) behind but local edits pending — \`dots push\` then \`dots sync\`$_nl"
+				fi
+			fi
+			if [ "$GAP_AHEAD" -gt 0 ]; then
+				_out="${_out}warn|$GAP_AHEAD commit(s) not pushed — run \`dots push\`$_nl"
+			fi
+		fi
+	fi
+	# A failed fetch (offline, DNS down, credentials gone) is deliberately not
+	# reported: it would nag at every shell start for a condition the user
+	# already knows about. It stays silent and retries after the next TTL.
+
+	if ! worktree_is_clean; then
+		_n=$(dgit status --porcelain | wc -l | tr -d ' ')
+		_out="${_out}warn|$_n file(s) changed locally — run \`dots push\`$_nl"
+	fi
+
+	_bad=$(count_bad_links)
+	if [ "${_bad:-0}" -gt 0 ]; then
+		_out="${_out}warn|$_bad broken link(s) — run \`dots doctor\`$_nl"
+	fi
+
+	printf '%s' "$_out" >"$DOTFILES_STATUS"
+	stamp_now
+	refresh_log "done"
+}
+
+# --- status ---------------------------------------------------------------
+
+cmd_status() {
+	info "repo    $DOTFILES_DIR"
+	info "branch  $(dgit rev-parse --abbrev-ref HEAD)"
+
+	if read_gap; then
+		if [ "$GAP_BEHIND" -eq 0 ] && [ "$GAP_AHEAD" -eq 0 ]; then
+			ok "in sync with origin (as of the last fetch)"
+		else
+			if [ "$GAP_BEHIND" -gt 0 ]; then warn "$GAP_BEHIND commit(s) to pull"; fi
+			if [ "$GAP_AHEAD" -gt 0 ]; then warn "$GAP_AHEAD commit(s) to push"; fi
+		fi
+	else
+		warn "the current branch has no upstream"
+	fi
+
+	if [ -r "$DOTFILES_LAST_CHECK" ]; then
+		_t=0
+		read -r _t <"$DOTFILES_LAST_CHECK" 2>/dev/null || _t=0
+		dim "last background check: $((($(date +%s) - _t) / 60)) min ago (TTL ${DOTFILES_TTL}s)"
+	else
+		dim "no background check has run yet"
+	fi
+
+	printf '\n'
+	if worktree_is_clean; then
+		ok "working tree clean"
+	else
+		warn "local changes:"
+		dgit status --short | sed 's/^/    /'
+	fi
+
+	printf '\n'
+	_bad=$(count_bad_links)
+	if [ "${_bad:-0}" -eq 0 ]; then
+		ok "all $(read_manifest | wc -l | tr -d ' ') links healthy"
+	else
+		warn "$_bad link(s) need attention:"
+		read_manifest | while read -r _s _d; do
+			_st=$(link_state "$_s" "$_d")
+			if [ "$_st" != ok ]; then printf '    %-30s %s\n' "~/$_d" "$_st"; fi
+		done
+		dim "run \`dots doctor\`"
+	fi
+}
+
+# --- push -----------------------------------------------------------------
+
+# True when a repo-relative path is covered by the manifest or by the repo's
+# own machinery. This is the gate that keeps ~/.claude/projects, credentials
+# and friends out of a public repo even if someone drops them in the tree.
+path_is_allowed() {
+	_p=$1
+	for _i in $INFRA_PATHS; do
+		case $_p in "$_i"*) return 0 ;; esac
+	done
+	_hit=$(read_manifest | cut -d' ' -f1 | while read -r _src; do
+		case $_p in "$_src" | "$_src"/*) printf 'y' ;; esac
+	done)
+	[ -n "$_hit" ]
+}
+
+# Cheap, high-signal patterns. This catches the accidental paste of a key into
+# an otherwise legitimate file — exactly the case .gitignore cannot see.
+scan_for_secrets() {
+	dgit diff --cached | grep -nE \
+		'sk-ant-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY|Bearer [A-Za-z0-9._-]{25,}|xox[baprs]-[A-Za-z0-9-]{10,}'
+}
+
+cmd_push() {
+	_msg=${1:-}
+
+	if worktree_is_clean; then
+		ok "nothing to commit"
+		return 0
+	fi
+
+	# Never build on top of a remote state we have not seen.
+	if read_gap; then
+		if [ "$GAP_BEHIND" -gt 0 ]; then
+			die "$GAP_BEHIND commit(s) to pull first — run \`dots sync\`"
+		fi
+	fi
+
+	info "changes:"
+	dgit status --short | sed 's/^/    /'
+	printf '\n'
+
+	# Whitelist gate, before anything is staged.
+	#
+	# -uall matters: without it git collapses untracked files into their parent
+	# directory ("home/ssh/"), which no manifest entry can ever match, so a
+	# legitimately declared new file would be rejected forever.
+	#
+	# Deletions are exempt. A removed file publishes nothing, and gating them
+	# would make it impossible to ever drop a path from the manifest: the
+	# deletion of the now-unlisted file would be rejected in perpetuity.
+	#
+	# The here-doc rather than a pipe keeps $_rejected in this shell — a
+	# `... | while read` loop would accumulate it in a subshell and lose it.
+	_rejected=''
+	while IFS= read -r _line; do
+		[ -n "$_line" ] || continue
+		_code=$(printf '%s' "$_line" | cut -c1-2)
+		case $_code in *D*) continue ;; esac
+		_p=$(printf '%s' "$_line" | cut -c4-)
+		# Renames read "old -> new"; only the destination can leak.
+		case $_p in *' -> '*) _p=${_p##* -> } ;; esac
+		# git quotes paths containing unusual characters.
+		_p=$(printf '%s' "$_p" | sed 's/^"//; s/"$//')
+		if ! path_is_allowed "$_p"; then _rejected="$_rejected    $_p
+"; fi
+	done <<EOF
+$(dgit status --porcelain -uall)
+EOF
+	if [ -n "$_rejected" ]; then
+		err "these paths are in neither the manifest nor the repo machinery:"
+		printf '%s' "$_rejected" >&2
+		die "add them to \`manifest\` deliberately, or remove them. Refusing to publish."
+	fi
+
+	dgit add -A
+
+	if _hits=$(scan_for_secrets); then
+		dgit reset --quiet
+		err "possible secret in the staged diff:"
+		printf '%s\n' "$_hits" | head -5 >&2
+		die "nothing was committed. This repo is public — check before retrying."
+	fi
+
+	dgit diff --cached --stat | sed 's/^/    /'
+	printf '\n'
+
+	if [ -z "$_msg" ]; then
+		if [ ! -t 0 ]; then
+			dgit reset --quiet
+			die "no tty for the commit message; use: dots push -m \"...\""
+		fi
+		printf 'Commit message (English, empty aborts): '
+		IFS= read -r _msg </dev/tty || _msg=''
+	fi
+	if [ -z "$_msg" ]; then
+		dgit reset --quiet
+		die "aborted, nothing staged."
+	fi
+
+	dgit commit --quiet -m "$_msg"
+	git_net push origin HEAD ||
+		die "commit created but push failed — fix the cause and retry \`dots push\`"
+
+	ok "pushed"
+	rm -f "$DOTFILES_STATUS"
+	stamp_now
+}
+
+# --- sync -----------------------------------------------------------------
+
+cmd_sync() {
+	info "fetching…"
+	if ! git_net fetch --prune origin; then
+		die "fetch failed (offline, or credentials unavailable)"
+	fi
+
+	read_gap || die "the current branch has no upstream"
+
+	if [ "$GAP_BEHIND" -eq 0 ]; then
+		ok "already up to date"
+	elif ! worktree_is_clean; then
+		err "$GAP_BEHIND commit(s) waiting, but the working tree is dirty:"
+		dgit status --short | sed 's/^/    /'
+		die "publish them with \`dots push\` first — sync never touches your edits."
+	elif [ "$GAP_AHEAD" -gt 0 ]; then
+		err "histories diverged: $GAP_BEHIND remote / $GAP_AHEAD local commit(s)."
+		info "Nothing was changed. Resolve it deliberately, for example:"
+		dim "    git -C $DOTFILES_DIR pull --rebase origin $(dgit rev-parse --abbrev-ref HEAD)"
+		exit 1
+	else
+		dgit merge --ff-only '@{u}'
+		ok "pulled $GAP_BEHIND commit(s)"
+	fi
+
+	# A pulled commit may have added a manifest entry, so relink quietly.
+	cmd_link_quiet
+	rm -f "$DOTFILES_STATUS"
+	stamp_now
+}
+
+# --- link -----------------------------------------------------------------
+
+backup_path_for() {
+	if [ -z "${DOTS_BACKUP:-}" ]; then
+		DOTS_BACKUP="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
+	fi
+	_target="$DOTS_BACKUP/$1"
+	mkdir -p -- "$(dirname -- "$_target")"
+	printf '%s\n' "$_target"
+}
+
+link_one() {
+	_src="$DOTFILES_DIR/$1"
+	_dst="$HOME/$2"
+	_quiet=${3:-}
+
+	case $(link_state "$1" "$2") in
+	ok)
+		if [ -z "$_quiet" ]; then dim "    ~/$2 already linked"; fi
+		return 0
+		;;
+	absent-source)
+		warn "not in the repo, skipped: $1"
+		return 0
+		;;
+	foreign | broken)
+		# Whatever sits there may be the only up-to-date copy. Copy it out
+		# before removing it — this is the one place the tool could destroy
+		# something irreplaceable.
+		_b=$(backup_path_for "$2")
+		cp -aL -- "$_dst" "$_b" 2>/dev/null || cp -a -- "$_dst" "$_b" 2>/dev/null || true
+		rm -rf -- "$_dst"
+		info "    ~/$2 replaced (backup: ${_b#"$HOME"/})"
+		;;
+	missing)
+		info "    ~/$2 created"
+		;;
+	esac
+
+	mkdir -p -- "$(dirname -- "$_dst")"
+	ln -s -- "$_src" "$_dst"
+}
+
+cmd_link() {
+	# Fixed up front so every link_one in the pipeline subshell shares one
+	# timestamped backup directory instead of creating its own.
+	DOTS_BACKUP="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
+	export DOTS_BACKUP
+
+	info "applying manifest:"
+	read_manifest | while read -r _s _d; do
+		link_one "$_s" "$_d"
+	done
+
+	printf '\n'
+	ok "done"
+	if [ -d "$DOTS_BACKUP" ]; then
+		dim "replaced files backed up in ${DOTS_BACKUP#"$HOME"/}"
+	fi
+	rm -f "$DOTFILES_STATUS"
+}
+
+cmd_link_quiet() {
+	DOTS_BACKUP="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
+	export DOTS_BACKUP
+	read_manifest | while read -r _s _d; do
+		link_one "$_s" "$_d" quiet >/dev/null 2>&1 || true
+	done
+}
+
+# --- doctor ---------------------------------------------------------------
+
+doctor_check_hook() {
+	_file=$1
+	_label=$2
+	if [ -r "$_file" ] && grep -q 'shell/hook.sh' "$_file" 2>/dev/null; then
+		ok "$_label hook installed"
+		return 0
+	fi
+	warn "$_label hook missing in ${_file#"$HOME"/} — run ./install.sh"
+	return 1
+}
+
+cmd_doctor() {
+	_problems=0
+
+	info "── repo ──"
+	if [ -d "$DOTFILES_DIR/.git" ]; then
+		ok "$DOTFILES_DIR"
+	else
+		err "not a git repo: $DOTFILES_DIR"
+		_problems=$((_problems + 1))
+	fi
+	if _url=$(dgit remote get-url origin 2>/dev/null); then
+		ok "remote: $_url"
+	else
+		err "no origin remote"
+		_problems=$((_problems + 1))
+	fi
+
+	printf '\n'
+	info "── shell hooks ──"
+	doctor_check_hook "$HOME/.bashrc" bash || _problems=$((_problems + 1))
+	doctor_check_hook "$HOME/.zshrc" zsh || _problems=$((_problems + 1))
+	if [ -r "$HOME/.config/fish/conf.d/dotfiles.fish" ]; then
+		ok "fish hook installed"
+	else
+		warn "fish hook missing — run ./install.sh"
+		_problems=$((_problems + 1))
+	fi
+	if [ -L "$HOME/.local/bin/dots" ]; then
+		ok "dots reachable via ~/.local/bin"
+	else
+		warn "~/.local/bin/dots missing — run ./install.sh"
+		_problems=$((_problems + 1))
+	fi
+
+	printf '\n'
+	info "── links ──"
+	# Repaired one at a time, showing the diff first. A "foreign" file at a
+	# target may hold edits that exist nowhere else; deleting it silently
+	# would be the one unrecoverable thing this tool could do.
+	read_manifest | while read -r _s _d; do
+		_st=$(link_state "$_s" "$_d")
+		case $_st in
+		ok)
+			ok "~/$_d"
+			continue
+			;;
+		absent-source)
+			err "~/$_d — source $_s missing from the repo"
+			continue
+			;;
+		missing) warn "~/$_d — not linked" ;;
+		broken) warn "~/$_d — symlink points elsewhere: $(readlink "$HOME/$_d")" ;;
+		foreign)
+			warn "~/$_d — a real file replaced the link (atomic rewrite?)"
+			if ! diff -q "$HOME/$_d" "$DOTFILES_DIR/$_s" >/dev/null 2>&1; then
+				dim "    its content differs from the repo version:"
+				diff -u "$DOTFILES_DIR/$_s" "$HOME/$_d" 2>/dev/null |
+					head -30 | sed 's/^/    /' || true
+				dim "    to keep the local one:  cp ~/$_d $DOTFILES_DIR/$_s && dots link"
+				continue
+			fi
+			dim "    identical to the repo version, safe to relink"
+			;;
+		esac
+		if [ -t 0 ]; then
+			printf '    relink now? [y/N] '
+			_a=n
+			read -r _a </dev/tty || _a=n
+			case $_a in [yY]*) link_one "$_s" "$_d" ;; esac
+		fi
+	done
+
+	printf '\n'
+	info "── tracked files outside the manifest ──"
+	_leaks=0
+	for _p in $(dgit ls-files); do
+		if ! path_is_allowed "$_p"; then
+			err "  $_p"
+			_leaks=$((_leaks + 1))
+		fi
+	done
+	if [ "$_leaks" -eq 0 ]; then
+		ok "none — nothing is published that the manifest does not describe"
+	else
+		_problems=$((_problems + _leaks))
+	fi
+
+	printf '\n'
+	info "── cache ──"
+	if [ -r "$DOTFILES_LAST_CHECK" ]; then
+		_t=0
+		read -r _t <"$DOTFILES_LAST_CHECK" 2>/dev/null || _t=0
+		dim "last check $((($(date +%s) - _t) / 60)) min ago"
+	else
+		dim "never checked"
+	fi
+	if [ -d "$DOTFILES_LOCK" ]; then
+		warn "a lock is currently held ($DOTFILES_LOCK)"
+	fi
+
+	printf '\n'
+	if [ "$_problems" -eq 0 ]; then
+		ok "no structural problem found"
+	else
+		warn "$_problems item(s) above need attention"
+	fi
+}
+
+# --- dispatch -------------------------------------------------------------
+
+usage() {
+	cat <<'EOF'
+dots — dotfiles shared across machines
+
+  dots status          what is out of sync (no network, no writes)
+  dots sync            pull remote changes, fast-forward only
+  dots push [-m MSG]   review, commit and publish local changes
+  dots link            (re)create the symlinks from `manifest`
+  dots doctor          full diagnostic, with guided repair
+
+Environment:
+  DOTFILES_DIR   repo location (default ~/dotfiles)
+  DOTFILES_TTL   seconds between background checks (default 14400)
+EOF
+}
+
+_cmd=${1:-status}
+if [ $# -gt 0 ]; then shift; fi
+
+case $_cmd in
+status) cmd_status ;;
+sync) cmd_sync ;;
+push)
+	if [ "${1:-}" = "-m" ]; then
+		shift
+		cmd_push "${1:-}"
+	else
+		cmd_push
+	fi
+	;;
+link) cmd_link ;;
+doctor) cmd_doctor ;;
+__refresh) cmd_refresh ;;
+-h | --help | help) usage ;;
+*)
+	err "unknown command: $_cmd"
+	usage
+	exit 1
+	;;
+esac

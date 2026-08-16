@@ -1,0 +1,15 @@
+# >>> dotfiles >>>
+# Appended to ~/.bashrc and ~/.zshrc by install.sh.
+#
+# One file serves both because bash and zsh share this syntax exactly. The
+# work happens in hook.sh, which is *executed* in a /bin/sh subprocess rather
+# than sourced — nothing here needs to alter the calling shell, which is what
+# lets a single implementation serve every shell.
+#
+# In bash this must sit AFTER the non-interactive early return near the top of
+# ~/.bashrc, otherwise it would also run for every scp/rsync/ssh command.
+export DOTFILES_DIR="$HOME/dotfiles"
+if [ -f "$DOTFILES_DIR/shell/hook.sh" ]; then
+	sh "$DOTFILES_DIR/shell/hook.sh"
+fi
+# <<< dotfiles <<<

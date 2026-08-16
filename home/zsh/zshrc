@@ -1,0 +1,22 @@
+# zsh — shared across machines.
+
+# Distro-provided config. Guarded: the other machine may not be CachyOS.
+[ -f /usr/share/cachyos-zsh-config/cachyos-config.zsh ] &&
+	source /usr/share/cachyos-zsh-config/cachyos-config.zsh
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+# --- machine-local overrides ---------------------------------------------
+# Everything specific to THIS machine goes here. Never versioned.
+[ -f "$HOME/.config/dotfiles/local.sh" ] && . "$HOME/.config/dotfiles/local.sh"
+
+# >>> dotfiles >>>
+# Checks whether the other machine pushed anything. Costs about a millisecond
+# and never touches the network — see shell/hook.sh.
+export DOTFILES_DIR="$HOME/dotfiles"
+if [ -f "$DOTFILES_DIR/shell/hook.sh" ]; then
+	sh "$DOTFILES_DIR/shell/hook.sh"
+fi
+# <<< dotfiles <<<
