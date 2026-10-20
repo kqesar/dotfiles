@@ -14,3 +14,5 @@ if status is-interactive
         sh $DOTFILES_DIR/shell/hook.sh
     end
 end
+
+set -gx SSH_AUTH_SOCK "$XDG_RUNTIME_DIR/ssh-agent.socket"

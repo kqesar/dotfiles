@@ -16,6 +16,18 @@ end
 #    # smth smth
 #end
 
+# --- pnpm (standalone, outside Node) --------------------------------------
+# Installed by get.pnpm.io's script rather than through Corepack, which Node no
+# longer ships from 25.0.0. Living outside any Node version, it survives Node
+# upgrades; inside a project it switches itself to the version `packageManager`
+# pins. __nvm_auto below still prepends the active Node's bin directory, so on
+# a Node where `corepack enable` was once run, that shim shadows this pnpm.
+# Guarded: the other machine may not have it installed.
+if test -d "$HOME/.local/share/pnpm/bin"
+    set -gx PNPM_HOME "$HOME/.local/share/pnpm"
+    fish_add_path -g -p "$PNPM_HOME/bin"
+end
+
 # --- nvm (nvm-sh/nvm, bridged into fish by the functions/ + bass) ---
 set -gx NVM_DIR "$HOME/.nvm"
 
@@ -27,6 +39,15 @@ set -gx NVM_DIR "$HOME/.nvm"
 # fish's lazy function loading would never trigger it on its own.
 if functions -q __nvm_auto
     __nvm_auto
+end
+
+# --- ssh agent ------------------------------------------------------------
+# Keys live in the systemd user agent. ssh itself reaches it through
+# ~/.ssh/config (IdentityAgent), so this export is for the tools that talk to
+# the agent directly instead of going through ssh. Guarded, because a machine
+# without that unit must get no variable rather than a dangling path.
+if test -S "$XDG_RUNTIME_DIR/ssh-agent.socket"
+    set -gx SSH_AUTH_SOCK "$XDG_RUNTIME_DIR/ssh-agent.socket"
 end
 
 # --- machine-local overrides ---------------------------------------------
