@@ -1,3 +1,14 @@
+---
+paths:
+  - "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte}"
+  - "**/package.json"
+  - "**/pnpm-{lock,workspace}.yaml"
+  - "**/tsconfig*.json"
+  - "**/{vite,vitest,playwright}.config.*"
+  - "**/Dockerfile*"
+  - "**/.github/workflows/*.{yml,yaml}"
+---
+
 # Écosystème JS / TypeScript
 
 ## Gestionnaire de paquets : pnpm, sans exception

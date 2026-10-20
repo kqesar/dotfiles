@@ -1,9 +1,18 @@
 # Workflow général
 
 ## Tâches complexes → mode plan
-Pour toute demande complexe (nouvelle feature, refonte, choix d'architecture, tâche multi-fichiers), passe en mode plan (`EnterPlanMode`). Le plan doit être conçu avec un modèle Opus en effort élevé : si ce n'est pas déjà le modèle actif, demande à l'utilisateur de basculer (`/model`) avant de finaliser le plan.
+Pour toute demande complexe (nouvelle feature, refonte, choix d'architecture, tâche multi-fichiers), passe en mode plan (`EnterPlanMode`). Le plan se conçoit avec Opus en effort élevé ; l'exécution, une fois le plan validé, avec le modèle et l'effort que demande sa complexité réelle. Le choix est le tien, sans attendre l'utilisateur : voir la section suivante.
 
-Une fois le plan validé par l'utilisateur, rebascule vers un modèle et un niveau d'effort adaptés à la complexité réelle de la tâche à exécuter, en restant économe en tokens (ne pas garder Opus/effort élevé pour de l'exécution simple).
+## Économie de tokens : modèle, effort, contexte
+Suivre les bonnes pratiques **à jour** de Claude Code sur la consommation (doc officielle : `costs`, `sub-agents`, `memory` sur code.claude.com) ; les revérifier en cas de doute, elles évoluent d'une version à l'autre. Objectif : la même efficacité pour moins de quota.
+
+- **Modèle et effort par phase, choisis en autonomie** : Opus en effort élevé pour concevoir, arbitrer une architecture, relire ou déboguer un problème difficile ; Sonnet pour exécuter un plan validé, une release, du travail routinier ; Haiku pour des recherches mécaniques. La qualité se garde par les contrôles (tests, lint, revue Opus des points délicats), pas par un modèle surdimensionné.
+- **Mise en œuvre** : `/model`, `/effort`, `/clear` et `/compact` sont des commandes de l'utilisateur, que Claude ne peut pas lancer sur sa propre session. Il applique donc ces choix aux agents qu'il lance (modèle et effort par agent) et garde la session principale en orchestrateur léger. Quand un changement de la session principale serait rentable, le dire en une ligne.
+- **Chaque changement de modèle ou d'effort** : le faire sans attendre, et notifier l'utilisateur (notification push) avec le pourquoi.
+- **Agents** : un fork (qui hérite de toute la conversation et la renvoie à chaque tour) seulement pour poursuivre la même zone de travail. Sinon, un agent frais avec un brief précis (objectif, format de sortie, limites) et un fichier de contexte commun écrit une seule fois et lu par tous ; les résultats reviennent dans un fichier, avec un résumé court.
+- **Contexte** : un sujet par session. Passer la main par des fichiers (issue de suivi, plan), puis repartir de zéro : `/clear` ne coûte rien, une compaction relit tout l'historique.
+- **Images** : recadrer ou réduire une capture avant de la lire.
+- **Force de proposition** : à chaque pause naturelle, signaler en une ou deux lignes ce qui ferait gagner du temps ou du quota, avec le gain attendu.
 
 ## Arbitrage et challenge
 Quand une tâche admet plusieurs implémentations valables, ne tranche pas seul silencieusement si l'écart d'impact (maintenabilité, perf, coût, risque) est significatif : présente les options à l'utilisateur pour qu'il arbitre. Argumente aussi les avantages/inconvénients de chaque option.

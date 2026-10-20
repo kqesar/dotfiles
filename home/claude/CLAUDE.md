@@ -3,7 +3,6 @@
 @rules/git.md
 @rules/versions.md
 @rules/infra.md
-@rules/js-ts.md
 @rules/deployment.md
 @rules/documentation.md
 
