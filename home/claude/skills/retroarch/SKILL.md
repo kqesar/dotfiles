@@ -136,7 +136,19 @@ session and fall back — it is the supported command and the legacy one may
 eventually go.
 
 Measured on snes9x: `READ_CORE_RAM` covers `0x00000-0x1FFFF` (WRAM) and `0x20000+`
-(SRAM), matching the regions rcheevos logs at game load.
+(SRAM), matching the regions rcheevos logs at game load. **Not on bsnes-mercury**:
+there SRAM through `READ_CORE_RAM` (`0x20000+`) answers `-1` on every game tried
+(ALttPR, Map Rando, Super Metroid, Chrono Trigger, DKC, SMZ3; 1.22.2, 2026-10-20),
+while `READ_CORE_MEMORY` reads SRAM at its bus address (`$70:0000` LoROM, `$30:6000`
+HiROM).
+
+bsnes-mercury's memory map had wrong ROM offsets before the fix submitted on
+2026-10-20 (`libretro: fix ROM offsets in the memory map`): every descriptor used
+offset 0. With an upstream core, `READ_CORE_MEMORY` therefore returns the wrong ROM
+bytes on HiROM's `8000-ffff` windows and on ExHiROM's upper half (`$40:0022` reads ROM
+`$000022`). LoROM, WRAM and SRAM read right. Enhancement-chip cartridges (Super FX,
+SA-1, S-DD1) have a separate bug, libretro/bsnes-mercury#98: a ROM read through the map
+can crash RetroArch.
 
 ### Reply handling
 
