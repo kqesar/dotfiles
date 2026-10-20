@@ -16,7 +16,7 @@ Apply this skill **only** when the work actually concerns RetroAchievements. If 
 | API | Base | Auth | Purpose |
 | :-- | :-- | :-- | :-- |
 | **Web API** (99% of use cases) | `https://retroachievements.org/API/API_<Name>.php` | `y` = web API key | Read-only JSON over games, users, achievements, leaderboards |
-| **Connect API** | `https://retroachievements.org/dorequest.php?r=<function>` | `t` = Connect token (from `r=login2`) | Write side: start session, ping, unlock achievements. Standalone-integration only — see `references/connect-api.md` |
+| **Connect API** | `https://retroachievements.org/dorequest.php?r=<function>` | `t` = Connect token (from `r=login2`) | Write side: start session, ping, unlock achievements — plus the emulator-only `r=patch` (real `MemAddr`, un-hashed), `r=achievementsets` (every set of a ROM hash, bonus subsets included) and `r=codenotes2` (per-address names). See `references/connect-api.md` |
 
 All Web API endpoints are `GET` and return JSON. There is no versioned path, no `Accept` negotiation, no body.
 
@@ -34,6 +34,7 @@ https://retroachievements.org/API/API_GetGame.php?i=1&y=<web_api_key>
   ```
   Success bodies never carry this envelope, so `"errors" in body` is a reliable failure check alongside the status code.
 - Rate limiting is enabled site-wide but **no published limit, no documented `X-RateLimit-*` / `Retry-After` headers**. Treat 429/5xx as retryable with backoff, and design for caching rather than polling: game metadata is near-static, user progress changes slowly. On a 2 GB/1 vCore VPS (`rules/infra.md`), cache in Postgres/SQLite or an on-disk cache instead of hammering the API per page view.
+- **Bursts trip it, not only sustained rates.** Observed in a downstream project (2026-10): about seven requests fired within ~0.5 s at a game load drew a 429 on the last of them (`API_GetGameLeaderboards`) three times in one week; a few daemon restarts within minutes earned one on `API_GetGameProgression`. Spread non-urgent calls over a few seconds instead of firing everything at once, and give a 429 a long floor (minutes) rather than the ordinary backoff curve.
 - Bad IDs generally yield an empty array/object rather than a 404 — check for emptiness, don't assume an error status.
 
 ## Cross-cutting conventions
@@ -162,9 +163,13 @@ Every documented endpoint. `→ file` points at the reference holding the full r
 - **Matching a local ROM to an RA game** → hash the file, look it up in `API_GetGameHashes` (RA uses its own MD5 scheme per console — rcheevos is authoritative for how the hash is computed for non-trivial systems).
 - **Live "what's happening" feed** → `API_GetRecentGameAwards` (+ `API_GetAchievementOfTheWeek`), respecting the rate limit.
 - **Awarding achievements from your own game/server** → Connect API, `references/connect-api.md`.
+- **Reading the real achievement logic, or naming a RAM address** → Connect API `r=patch` / `r=codenotes2`, `references/connect-api.md`.
+- **Which bonus sets (subsets) a loaded ROM runs** → Connect `r=achievementsets&m=<hash>`; each subset is its own web game id (`ParentGameID` points back), so its progress comes from the web API on that id. `references/connect-api.md`. If the project also drives RetroArch, load the `retroarch` skill alongside this one.
 
 ## Known limits
 
+- **The Web API hashes achievement logic on purpose.** `API_GetGameExtended` returns an MD5 for `MemAddr` and `RichPresencePatch`, not the logic. There is no web-API workaround; the Connect API's `r=patch` is the only source. Anti-cheat, working as designed.
+- **Naming for RAM addresses does exist** — via Connect `r=codenotes2`, not the Web API. This file previously claimed no such thing existed anywhere; it was wrong, and the mistake made a downstream feature unreadable. See `references/connect-api.md`.
 - No write access on the Web API. No search endpoint (no "find game by name") — mirror `API_GetGameList` locally and search your own copy.
 - No "all users" or "global leaderboard beyond top ten" endpoint.
 - Missing data can be requested from the RA team: https://github.com/RetroAchievements/RAWeb/discussions/2081

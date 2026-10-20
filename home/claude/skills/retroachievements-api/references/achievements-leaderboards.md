@@ -65,6 +65,8 @@ No params beyond `y`. Current AotW event.
     "Type": null,
     "Author": "StingX2",
     "AuthorULID": "00003EMFWR7XB8SDPEHB3K56ZQ",
+    "BadgeName": "702047",
+    "BadgeURL": "/Badge/702047.png",
     "DateCreated": "2021-10-16",
     "DateModified": "2021-10-17"
   },
@@ -81,7 +83,17 @@ No params beyond `y`. Current AotW event.
 }
 ```
 
-`Unlocks` is unpaginated here — the payload grows with participation. Changes weekly; cache for the week, keyed on `StartAt`.
+**`Unlocks` is capped, not complete** (observed 2026-10-18, a downstream project): it held
+the **500 most recent** unlocks, newest first, with `UnlocksCount` and
+`UnlocksHardcoreCount` both 500 while `TotalPlayers` was 4855. A name missing
+from a full list therefore proves nothing; to know whether a given user has the
+achievement, ask that user's progress on the game instead. The payload was 79 KB.
+This file previously called the list unpaginated and the payload growing with
+participation; both were wrong. `BadgeName`/`BadgeURL` are present on
+`Achievement` (they were missing from the sample above, now added).
+
+Changes weekly; cache it, keyed on `StartAt`. Refetching daily is enough to
+follow a user's own unlock of it.
 
 ---
 
