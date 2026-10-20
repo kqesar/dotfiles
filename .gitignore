@@ -29,6 +29,10 @@ stats-cache.json
 .last-update-result.json
 # Reinstallable, 7 MB.
 plugins/
+# Skills Claude Code downloads from the claude.ai account (syncClaudeAiSkills),
+# plus what it moves aside when sync is turned off. Re-fetched on every machine.
+**/skills/synced/
+**/skills/.trash/
 
 # --- Generic secrets -------------------------------------------------------
 .env
