@@ -93,6 +93,13 @@ ps -eo pid,comm,args | awk '$2 == "AppRun" && /RetroArch\.AppImage/ { print $1 }
   `savestate_directory` pointed at a scratch copy, so in-game SRAM written on
   exit never lands on the player's saves. `screenshot_directory` there sends
   the `SCREENSHOT` command's files to that copy too (seen 2026-10-19).
+- **The history and the play-time logs are not redirected by any of that.** A
+  test launch adds its content to the player's History
+  (`playlists/builtin/content_history.lpl`) and writes a play-time log
+  (`playlists/logs/<core>/<rom>.lrtl`). On 2026-10-20 that left 8 dead entries
+  pointing at deleted test ROMs: the player then picked one, and RetroArch could not
+  open it. Add `history_list_enable = "false"` and `content_runtime_log = "false"`
+  to the appendconfig.
 - **Pressing buttons with no input tool** (Wayland, no ydotool): the network
   remote gamepad. With `network_remote_enable = "true"`,
   `network_remote_enable_user_p1 = "true"` and `network_remote_base_port =
