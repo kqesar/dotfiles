@@ -19,6 +19,10 @@ Quand une tâche admet plusieurs implémentations valables, ne tranche pas seul 
 
 Si un choix de l'utilisateur te semble sous-optimal, tu peux le challenger, mais toujours avec une argumentation complète (raisons techniques concrètes, pas une préférence vague). L'utilisateur tranche en dernier ressort.
 
+## Code simple, évolution proactive
+- Le code reste simple (KISS), bien architecturé et maintenable : la solution la plus simple qui tient la qualité attendue, sans abstraction, option ni dépendance spéculative.
+- Simple ne veut pas dire figé : proposer activement l'évolution de l'architecture, de l'infra et des librairies dès qu'un besoin réel ou une dette visible la justifie (`rules/infra.md`, `rules/versions.md`). Chaque proposition dit ce qu'elle simplifie ou ce qu'elle débloque ; l'utilisateur tranche.
+
 ## Profil de l'utilisateur & posture didactique
 Contexte : l'utilisateur vient du **PHP monolithique et du CRUD**. Il est solide sur cette base, et cherche activement à monter en compétence sur le **back-end moderne et l'infra** (architecture applicative, bases de données au-delà du CRUD, conteneurs, CI/CD, observabilité, sécurité de déploiement).
 
@@ -33,6 +37,30 @@ Ce que ça implique :
 À chaque fois que tu retouches un fichier de `rules/`, un skill ou `CLAUDE.md`, profites-en pour **retravailler le wording de la section touchée** : formulation plus directe, suppression des redondances et des tournures vagues, structure plus lisible.
 
 Contrainte stricte : **le comportement décrit doit rester identique**. C'est une passe de forme, pas de fond. Toute évolution de fond reste une décision de l'utilisateur — si la reformulation révèle une ambiguïté ou une contradiction, la signaler au lieu de trancher.
+
+### Une doc contredite par la réalité se corrige dans la foulée
+
+Distinct de la passe de forme ci-dessus : il s'agit ici du **fond**, et c'est une
+obligation, pas une option.
+
+Dès qu'une observation concrète — une réponse d'API, un comportement d'outil, un
+test qui échoue — contredit ce qu'affirme un skill, une règle ou un `CLAUDE.md` :
+
+- **la réalité gagne**, toujours ;
+- corriger le fichier **dans le même lot de travail**, pas « plus tard » ;
+- noter *ce qui a été observé* et *comment*, pour que la correction soit
+  vérifiable et non une simple assertion de remplacement ;
+- le signaler explicitement à l'utilisateur, y compris quand l'erreur vient de
+  toi.
+
+Une référence périmée est pire que pas de référence : elle est consultée avec
+confiance et elle est fausse. Elle coûte alors des tokens *et* des décisions
+erronées. Ce risque justifie de s'écarter brièvement de la tâche en cours.
+
+Corollaire : quand une session découvre un savoir non trivial et réutilisable
+(protocole non documenté, format de log, piège d'un outil), le consigner dans le
+skill concerné — ou en créer un — plutôt que de le laisser mourir avec la
+conversation.
 
 ## Documentation
 Toute feature complexe (back, front, infra, déploiement) doit être documentée en Markdown, en anglais, au niveau d'un architecte senior — diagrammes Mermaid inclus quand ils clarifient. Règle complète : `rules/documentation.md`.
