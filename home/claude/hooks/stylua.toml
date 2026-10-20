@@ -1,0 +1,13 @@
+# Formatage Lua de repli pour les addons WoW.
+#
+# Tabulations et 120 colonnes : c'est la convention du code Blizzard et de
+# BigWigs, donc celle du corpus de référence local. Un projet qui fournit son
+# propre stylua.toml garde la main.
+
+column_width = 120
+line_endings = "Unix"
+indent_type = "Tabs"
+indent_width = 4
+quote_style = "AutoPreferDouble"
+call_parentheses = "Always"
+collapse_simple_statement = "Never"

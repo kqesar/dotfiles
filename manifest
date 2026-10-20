@@ -19,6 +19,7 @@ home/claude/CLAUDE.md        .claude/CLAUDE.md
 home/claude/RTK.md           .claude/RTK.md
 home/claude/rules            .claude/rules
 home/claude/skills           .claude/skills
+home/claude/hooks            .claude/hooks
 # Claude Code rewrites this file itself (/config, /model). It is linked
 # anyway, and `dots doctor` repairs the link when that breaks it.
 home/claude/settings.json    .claude/settings.json
