@@ -26,6 +26,6 @@ description: Use this skill whenever writing or reviewing Dockerfiles, docker-co
 - Un `flowchart` Mermaid de la topologie (internet → reverse proxy → services → base/volumes) et un tableau des variables d'environnement (nom, rôle, où vit la valeur — **jamais la valeur**) valent mieux que des paragraphes.
 
 ## Projets JS/TS
-- Installation des dépendances avec **pnpm exclusivement** : Corepack activé dans l'image, `pnpm install --frozen-lockfile`, `pnpm-lock.yaml` copié en amont pour préserver le cache de layers, store pnpm mis en cache entre les builds CI.
+- Installation des dépendances avec **pnpm exclusivement** : pnpm installé dans le stage de build par son script autonome — pas de Corepack, que Node ne livre plus depuis la 25.0.0 —, `pnpm install --frozen-lockfile`, `pnpm-lock.yaml` copié en amont pour préserver le cache de layers, store pnpm mis en cache entre les builds CI. Commande et épinglage : `rules/js-ts.md`.
 - **Compose de dev : HMR fonctionnel à travers le conteneur** — sources montées en volume, `node_modules` isolé du host, port du client HMR exposé. N'activer le polling du watcher que si l'inotify du host ne remonte pas dans le conteneur : il coûte du CPU sur 1 vCore. Voir `rules/js-ts.md`.
 - Garder les stages dev et prod séparés : le HMR et l'outillage de dev ne doivent jamais atterrir dans l'image de production.
