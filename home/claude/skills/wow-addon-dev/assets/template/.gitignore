@@ -1,0 +1,3 @@
+*.zip
+.luacheckcache
+.DS_Store

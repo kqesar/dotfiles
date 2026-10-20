@@ -1,0 +1,19 @@
+## Interface: 120100
+## Title: Addon Template
+## Title-frFR: Modèle d'addon
+## Notes: Starting skeleton for a retail addon
+## Notes-frFR: Squelette de départ pour un addon retail
+## Version: 0.1.0
+## Author: Kaphéïne
+## SavedVariables: AddonTemplateDB
+## IconTexture: Interface\Icons\INV_Misc_Book_09
+## Category: Interface
+## Category-frFR: Interface
+
+# L'ordre compte : chaque fichier voit ce que les précédents ont posé dans `ns`.
+# Un fichier .lua absent de cette liste n'est JAMAIS chargé — sans erreur ni
+# avertissement. C'est la première chose à vérifier quand du code « ne s'exécute pas ».
+Locales.lua
+Core.lua
+Config.lua
+Events.lua
