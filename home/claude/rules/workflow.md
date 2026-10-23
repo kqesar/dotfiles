@@ -1,23 +1,32 @@
 # Workflow général
 
 ## Tâches complexes → mode plan
-Pour toute demande complexe (nouvelle feature, refonte, choix d'architecture, tâche multi-fichiers), passe en mode plan (`EnterPlanMode`). Le plan se conçoit avec Opus en effort élevé ; l'exécution, une fois le plan validé, avec le modèle et l'effort que demande sa complexité réelle. Le choix est le tien, sans attendre l'utilisateur : voir la section suivante.
+Pour toute demande complexe (nouvelle feature, refonte, choix d'architecture, tâche multi-fichiers), passe en mode plan (`EnterPlanMode`). Le plan se conçoit avec Opus en effort `xhigh` ; l'exécution, une fois le plan validé, avec le modèle et l'effort que demande sa complexité réelle. Le choix est le tien, sans attendre l'utilisateur : voir la section « Économie de tokens ».
+
+## Pratiques à jour
+Toute recommandation ou tout choix technique (code, sécurité, infra, CI, outillage, Claude Code lui-même) s'appuie sur la doc officielle ou l'état actuel de l'écosystème, **vérifié au moment de la décision** (WebFetch/WebSearch ; outils Chrome en repli, voir `CLAUDE.md`), jamais sur la mémoire d'entraînement du modèle, périmée par construction.
+- Citer la source (URL de la page) quand le choix compte.
+- Quand la mémoire et la source divergent, la source l'emporte, et la règle ou le skill qu'elle contredit se corrige dans la foulée (voir « Une doc contredite par la réalité » dans « Entretien des règles et des skills »).
+- Les numéros de version sont un cas particulier : voir `rules/versions.md`.
 
 ## Économie de tokens : modèle, effort, contexte
-Suivre les bonnes pratiques **à jour** de Claude Code sur la consommation (doc officielle : `costs`, `sub-agents`, `memory` sur code.claude.com) ; les revérifier en cas de doute, elles évoluent d'une version à l'autre. Objectif : la même efficacité pour moins de quota.
+Cas particulier des pratiques à jour : les recommandations de Claude Code sur la consommation évoluent d'une version à l'autre, donc se relisent dans la doc officielle (code.claude.com : `costs`, `sub-agents`, `model-config`, `prompt-caching`, `workflows`, `memory`) avant d'en tirer une règle. Objectif : la même efficacité pour moins de quota.
 
-- **Tout lot de travail dans un agent neuf** (code, doc, recherche, revue), avec `model` **et** `effort` fixés explicitement, jamais laissés par défaut. La session principale orchestre : elle ne fait elle-même que ce qui coûterait plus cher à déléguer (une commande `gh`, la lecture d'un rapport) et garde un contexte léger.
-- **Modèle par phase** : Opus pour concevoir, arbitrer une architecture, relire ou déboguer un problème difficile ; Sonnet pour exécuter un plan validé, une release, du travail routinier ; Haiku pour des recherches mécaniques. La qualité se garde par les contrôles (tests, lint, revue Opus des points délicats), pas par un modèle surdimensionné.
-- **Échelle d'effort** :
+- **Tout lot de travail dans un agent neuf** (code, doc, recherche, revue), avec `model` **et** `effort` fixés explicitement à chaque lancement (paramètres par appel de l'outil `Agent`, prioritaires sur le frontmatter de l'agent). Sans cela, l'agent hérite du modèle et de l'effort de la session, par défaut `medium` sur Opus 5.5, Sonnet 5.5 et Haiku 5.5. La session principale orchestre : elle ne fait elle-même que ce qui coûterait plus cher à déléguer (une commande `gh`, la lecture d'un rapport) et garde un contexte léger.
+- **Modèle par phase** : Opus pour concevoir, arbitrer une architecture, relire ou déboguer un problème difficile ; Sonnet pour exécuter un plan validé, une release, du travail routinier ; Haiku pour des recherches mécaniques. La qualité se garde par les contrôles (tests, lint, revue Opus des points délicats), pas par un modèle surdimensionné. Pour une recherche en lecture seule, l'agent `Explore` est le moins cher : il ne charge ni `CLAUDE.md` ni le statut git.
+- **Échelle d'effort** (niveaux : `low`, `medium`, `high`, `xhigh`, `max`) :
   - `low` ou `medium` : recherche ou modification mécanique ;
   - `high` : exécuter un plan validé ;
   - `xhigh` : concevoir, déboguer un problème dur, relire du code à risque (sécurité, concurrence, migration de données) ;
   - `max` : seulement si `xhigh` a échoué, ou si l'enjeu est critique.
-- **Workflow** (orchestration multi-agents, ultracode) : autorisé d'office quand il sert, c'est-à-dire pour un fan-out de tâches indépendantes ou une revue sur plusieurs axes avec vérification croisée des constats ; inutile pour une tâche séquentielle. Annoncer son coût estimé avant de le lancer.
-- **Mise en œuvre** : `/model`, `/effort`, `/clear` et `/compact` sont des commandes de l'utilisateur, que Claude ne peut pas lancer sur sa propre session. Il applique donc ces choix à chaque agent qu'il lance. Quand un changement de la session principale serait rentable, le dire en une ligne.
+
+  Un niveau que le modèle ne gère pas retombe sur le plus haut niveau inférieur (`xhigh` devient `high` sur Opus 4.6 et Sonnet 4.6).
+- **Workflow** (orchestration multi-agents, `ultracode`) : pertinent pour un fan-out de tâches indépendantes ou une revue sur plusieurs axes avec vérification croisée des constats ; inutile pour une tâche séquentielle. Le lancement reste un opt-in de l'utilisateur (mot-clé `ultracode` ou demande explicite), validé par l'invite d'approbation qui affiche les phases prévues. Pour le coût : essayer d'abord sur une petite tranche, demander un modèle plus petit pour les étapes simples (sinon les agents prennent le modèle de la session), et ne pas laisser `/effort ultracode` actif en routine (un workflow par tâche substantielle ; `/effort ultracode off`).
+- **Mise en œuvre** : `/model`, `/effort`, `/clear` et `/compact` sont des commandes de l'utilisateur, que Claude ne peut pas lancer sur sa propre session. Il applique donc ces choix à chaque agent qu'il lance. Quand un changement de la session principale serait rentable, le dire en une ligne : changer de modèle (ou d'effort sur la plupart des modèles) en cours de session invalide le cache et coûte un tour sans cache, donc à faire en début de session ou à une pause.
 - **Chaque changement de modèle ou d'effort** : le faire sans attendre, et notifier l'utilisateur (notification push) avec le pourquoi.
-- **Agents** : un fork (qui hérite de toute la conversation et la renvoie à chaque tour) seulement pour poursuivre la même zone de travail. Sinon, un agent frais avec un brief précis (objectif, format de sortie, limites) et un fichier de contexte commun écrit une seule fois et lu par tous ; les résultats reviennent dans un fichier, avec un résumé court.
-- **Contexte** : un sujet par session. Passer la main par des fichiers (issue de suivi, plan), puis repartir de zéro : `/clear` ne coûte rien, une compaction relit tout l'historique.
+- **Agents** : un fork hérite de toute la conversation, du modèle et des outils du parent (on ne lui en choisit pas d'autres) ; sa première requête relit le cache du parent, ce qui le rend moins cher qu'un agent neuf quand la tâche a besoin du même contexte. Pour toute autre tâche, un agent neuf avec un brief précis (objectif, format de sortie, limites) et un fichier de contexte commun écrit une seule fois et lu par tous ; les résultats reviennent dans un fichier, avec un résumé court.
+- **Contexte** : un sujet par session. Passer la main par des fichiers (issue de suivi, plan), puis repartir de zéro : `/clear` ne coûte rien, alors qu'un `/compact` est lui-même une grosse requête (il relit tout l'historique, et le plus cher après une pause plus longue que la durée de vie du cache). Si compacter est nécessaire, le faire à une pause naturelle ; pour abandonner une fausse piste, `/rewind` vaut mieux.
+- **Mémoire** : `CLAUDE.md` sous 200 lignes ; les `@imports` n'allègent pas le contexte (ils se chargent avec le fichier qui les importe). Ce qui ne sert qu'à certains fichiers va dans une règle à `paths:`, ou dans un skill (chargé à la demande).
 - **Images** : recadrer ou réduire une capture avant de la lire.
 - **Force de proposition** : à chaque pause naturelle, signaler en une ou deux lignes ce qui ferait gagner du temps ou du quota, avec le gain attendu.
 
