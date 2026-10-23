@@ -1,3 +1,16 @@
+---
+paths:
+  - "**/Dockerfile*"
+  - "**/*compose*.{yml,yaml}"
+  - "**/.github/workflows/*.{yml,yaml}"
+  - "**/.gitlab-ci.yml"
+  - "**/.env*"
+  - "**/.gitignore"
+  - "**/*nginx*.conf"
+  - "**/Caddyfile"
+  - "**/*.service"
+  - "**/{deploy,deployment,ops}/**"
+---
 # Déploiement & sécurité
 
 ## Principe : le code peut être public

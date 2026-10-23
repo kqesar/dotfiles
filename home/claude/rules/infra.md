@@ -1,3 +1,15 @@
+---
+paths:
+  - "**/Dockerfile*"
+  - "**/*compose*.{yml,yaml}"
+  - "**/.github/workflows/*.{yml,yaml}"
+  - "**/.gitlab-ci.yml"
+  - "**/*nginx*.conf"
+  - "**/Caddyfile"
+  - "**/*.sql"
+  - "**/migrations/**"
+  - "**/*.prisma"
+---
 # Cible de déploiement
 
 ## Hypothèse par défaut : petit VPS

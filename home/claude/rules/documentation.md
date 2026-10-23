@@ -1,3 +1,7 @@
+---
+paths:
+  - "**/*.{md,mdx}"
+---
 # Documentation technique
 
 ## Quand documenter

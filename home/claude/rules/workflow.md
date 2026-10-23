@@ -78,5 +78,9 @@ Corollaire : quand une session découvre un savoir non trivial et réutilisable
 skill concerné — ou en créer un — plutôt que de le laisser mourir avec la
 conversation.
 
-## Documentation
-Toute feature complexe (back, front, infra, déploiement) doit être documentée en Markdown, en anglais, au niveau d'un architecte senior — diagrammes Mermaid inclus quand ils clarifient. Règle complète : `rules/documentation.md`.
+## Infra, déploiement, documentation : le socle permanent
+Le détail de ces trois domaines vit dans `~/.claude/rules/` (`infra.md`, `deployment.md`, `documentation.md`) et ne se charge qu'avec les fichiers qu'il concerne. Ce socle s'applique à toute tâche, y compris en conception avant d'avoir ouvert un fichier.
+
+- **Cible de déploiement** : sauf indication du projet, back, front et conteneurs tournent sur un VPS de 2 Go de RAM et 1 vCore, et se conçoivent pour cette enveloppe même si le serveur grossit. Une feature qui n'y tient pas se signale avec ses options (dégrader la feature, alléger la stack, upgrader le VPS). Ce budget cadre les propositions sans les interdire : base de données, services d'infra et observabilité se proposent dès que le besoin est réel. Avant d'en proposer ou d'en chiffrer un, lire `~/.claude/rules/infra.md` (chargé d'office avec Dockerfile, compose, CI, nginx, SQL et migrations).
+- **Le dépôt est réputé public** : aucun secret dans le code, un `.env` commité, un compose, un workflow ou un Dockerfile, ni dans les logs ; un secret déjà commité est compromis et se fait révoquer en priorité. Tout manque de sécurité de déploiement vu pendant une tâche se signale avec sa correction. Détail (chaîne CI, OIDC, durcissement serveur) : `~/.claude/rules/deployment.md` (chargé d'office avec CI, Docker, `.env`, `.gitignore` et reverse proxy).
+- **Documentation** : toute feature complexe (back, front, infra, déploiement) se documente en Markdown, en anglais, au niveau d'un architecte senior, avec des diagrammes Mermaid quand ils clarifient. Critère : un lecteur ne peut pas reconstituer l'intention en lisant le code ; le trivial ne se documente pas. La doc fait partie de la feature et se met à jour dans le même lot que le code ; une doc constatée fausse se signale, correction proposée. Avant d'écrire ou de modifier une doc, lire `~/.claude/rules/documentation.md` (chargé d'office avec les `.md`).
