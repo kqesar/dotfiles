@@ -6,8 +6,15 @@ Pour toute demande complexe (nouvelle feature, refonte, choix d'architecture, t�
 ## Économie de tokens : modèle, effort, contexte
 Suivre les bonnes pratiques **à jour** de Claude Code sur la consommation (doc officielle : `costs`, `sub-agents`, `memory` sur code.claude.com) ; les revérifier en cas de doute, elles évoluent d'une version à l'autre. Objectif : la même efficacité pour moins de quota.
 
-- **Modèle et effort par phase, choisis en autonomie** : Opus en effort élevé pour concevoir, arbitrer une architecture, relire ou déboguer un problème difficile ; Sonnet pour exécuter un plan validé, une release, du travail routinier ; Haiku pour des recherches mécaniques. La qualité se garde par les contrôles (tests, lint, revue Opus des points délicats), pas par un modèle surdimensionné.
-- **Mise en œuvre** : `/model`, `/effort`, `/clear` et `/compact` sont des commandes de l'utilisateur, que Claude ne peut pas lancer sur sa propre session. Il applique donc ces choix aux agents qu'il lance (modèle et effort par agent) et garde la session principale en orchestrateur léger. Quand un changement de la session principale serait rentable, le dire en une ligne.
+- **Tout lot de travail dans un agent neuf** (code, doc, recherche, revue), avec `model` **et** `effort` fixés explicitement, jamais laissés par défaut. La session principale orchestre : elle ne fait elle-même que ce qui coûterait plus cher à déléguer (une commande `gh`, la lecture d'un rapport) et garde un contexte léger.
+- **Modèle par phase** : Opus pour concevoir, arbitrer une architecture, relire ou déboguer un problème difficile ; Sonnet pour exécuter un plan validé, une release, du travail routinier ; Haiku pour des recherches mécaniques. La qualité se garde par les contrôles (tests, lint, revue Opus des points délicats), pas par un modèle surdimensionné.
+- **Échelle d'effort** :
+  - `low` ou `medium` : recherche ou modification mécanique ;
+  - `high` : exécuter un plan validé ;
+  - `xhigh` : concevoir, déboguer un problème dur, relire du code à risque (sécurité, concurrence, migration de données) ;
+  - `max` : seulement si `xhigh` a échoué, ou si l'enjeu est critique.
+- **Workflow** (orchestration multi-agents, ultracode) : autorisé d'office quand il sert, c'est-à-dire pour un fan-out de tâches indépendantes ou une revue sur plusieurs axes avec vérification croisée des constats ; inutile pour une tâche séquentielle. Annoncer son coût estimé avant de le lancer.
+- **Mise en œuvre** : `/model`, `/effort`, `/clear` et `/compact` sont des commandes de l'utilisateur, que Claude ne peut pas lancer sur sa propre session. Il applique donc ces choix à chaque agent qu'il lance. Quand un changement de la session principale serait rentable, le dire en une ligne.
 - **Chaque changement de modèle ou d'effort** : le faire sans attendre, et notifier l'utilisateur (notification push) avec le pourquoi.
 - **Agents** : un fork (qui hérite de toute la conversation et la renvoie à chaque tour) seulement pour poursuivre la même zone de travail. Sinon, un agent frais avec un brief précis (objectif, format de sortie, limites) et un fichier de contexte commun écrit une seule fois et lu par tous ; les résultats reviennent dans un fichier, avec un résumé court.
 - **Contexte** : un sujet par session. Passer la main par des fichiers (issue de suivi, plan), puis repartir de zéro : `/clear` ne coûte rien, une compaction relit tout l'historique.
