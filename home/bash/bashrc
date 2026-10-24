@@ -14,7 +14,7 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
-# --- Claude Code: resume the session after /update -------------------------
+# --- Claude Code: resume the session after /hot-upgrade ------------------
 [ -f "${DOTFILES_DIR:-$HOME/dotfiles}/shell/claude.sh" ] && . "${DOTFILES_DIR:-$HOME/dotfiles}/shell/claude.sh"
 
 # --- machine-local overrides ---------------------------------------------
