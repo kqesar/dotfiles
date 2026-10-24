@@ -1,8 +1,8 @@
 {
-  "model": "opus",
   "env": {
     "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"
   },
+  "model": "opus",
   "hooks": {
     "PreToolUse": [
       {
@@ -37,18 +37,30 @@
       }
     ]
   },
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$HOME/.claude/hooks/statusline.sh\"",
+    "refreshInterval": 60
+  },
+  "enabledPlugins": {
+    "checklist@claude-mods": true,
+    "hot-upgrade@claude-mods": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-mods": {
+      "source": {
+        "source": "github",
+        "repo": "kqesar/claude-mods"
+      }
+    }
+  },
   "effortLevel": "xhigh",
   "modelSettings": {
     "claude-opus-5-5": {
       "effortLevel": "high"
     }
   },
-  "theme": "auto",
-  "agentPushNotifEnabled": true,
   "skipWorkflowUsageWarning": true,
-  "statusLine": {
-    "type": "command",
-    "command": "bash \"$HOME/.claude/hooks/statusline.sh\"",
-    "refreshInterval": 60
-  }
+  "theme": "auto",
+  "agentPushNotifEnabled": true
 }
