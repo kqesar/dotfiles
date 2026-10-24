@@ -37,6 +37,8 @@ home/fish/functions/__nvm_auto.fish          .config/fish/functions/__nvm_auto.f
 home/fish/functions/__nvm_default_bin.fish   .config/fish/functions/__nvm_default_bin.fish
 home/fish/functions/__nvm_resolve_spec.fish  .config/fish/functions/__nvm_resolve_spec.fish
 home/fish/functions/nvm.fish                 .config/fish/functions/nvm.fish
+# Wraps claude to resume the session after the /update mod switches versions.
+home/fish/functions/claude.fish              .config/fish/functions/claude.fish
 # fisher's plugin list — the fish equivalent of a lockfile.
 home/fish/fish_plugins       .config/fish/fish_plugins
 
