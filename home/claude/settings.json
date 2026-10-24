@@ -1,5 +1,8 @@
 {
   "model": "opus",
+  "env": {
+    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -37,11 +40,12 @@
   "effortLevel": "xhigh",
   "modelSettings": {
     "claude-opus-5-5": {
-      "effortLevel": "xhigh"
+      "effortLevel": "high"
     }
   },
   "theme": "auto",
   "agentPushNotifEnabled": true,
+  "skipWorkflowUsageWarning": true,
   "statusLine": {
     "type": "command",
     "command": "bash \"$HOME/.claude/hooks/statusline.sh\"",
