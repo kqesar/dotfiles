@@ -491,6 +491,7 @@ See [references/pr-attachments.md](references/pr-attachments.md) for alt text, i
 ## Local setup notes (this machine)
 
 - Installed with `pnpm add -g @playwright/cli@0.1.22` on 2026-10-24. Browsers come from `playwright-cli install-browser chromium|firefox|webkit`, into `~/.cache/ms-playwright`.
+- It writes its page snapshots and default screenshots to `.playwright-cli/` in the current directory (seen 2026-10-25: two snapshots slipped into a repo commit). Run it from a scratch directory, or make sure the repo ignores `.playwright-cli/`, before any `git add -A`.
 - `open` defaults to the `chrome` channel (`/opt/google/chrome/chrome`), which is not installed here: always pass `--browser=chromium` (the bundled one) or `--browser=firefox`. Both checked on 2026-10-24.
 - WebKit (the fallback build for ubuntu24.04) does not start natively on CachyOS: it lacks `libicu*.so.74`, `libxml2.so.2`, `libflite*.so.1`, `libjxl.so.0.8` and `libbacktrace.so.0`. **Run it in the official Docker image instead** (verified 2026-10-24, Safari 27.2 user agent). Docker is enabled and the user is in the `docker` group. A Claude session started before that joined the group must wrap each docker call: `echo "<docker command>" | newgrp docker`. Recipe, with the client's `playwright-core` version equal to the image's:
   ```sh
