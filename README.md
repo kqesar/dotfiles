@@ -163,6 +163,13 @@ Mitigations:
   directory. That is why the manifest links whole directories wherever it can,
   which also means a new file inside one is shared automatically.
 
+## Claude Code status line
+
+The status line (model, effort, branch, context and quota usage) is
+`home/claude/hooks/statusline.sh`. To reproduce it elsewhere, by copying the
+script or with a ready-made `/statusline` prompt, see
+[`home/claude/hooks/statusline.md`](home/claude/hooks/statusline.md).
+
 ## Layout
 
 ```
