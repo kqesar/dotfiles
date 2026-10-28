@@ -12,6 +12,11 @@ DOTFILES_LAST_CHECK="$DOTFILES_CACHE/last-check"
 DOTFILES_LOCK="$DOTFILES_CACHE/lock"
 DOTFILES_MANIFEST="$DOTFILES_DIR/manifest"
 
+# Optional private companion repo: a second clone, laid out like this one,
+# whose own `manifest` `dots link` and `dots doctor` apply after this one.
+# Absent, everything here behaves as if it did not exist. See README.
+DOTFILES_PRIVATE_DIR=${DOTFILES_PRIVATE_DIR:-"$HOME/dotfiles-private"}
+
 # How long a check stays fresh, in seconds. Four hours: often enough that the
 # other machine's changes land the same day, rare enough that opening a
 # terminal almost never triggers network work.
@@ -47,13 +52,23 @@ die() {
 
 # --- manifest -------------------------------------------------------------
 
-# Emit "<src> <dst>" per entry, comments and blanks stripped, so callers can
+# Emit "<src> <dst>" per entry of a repo's manifest (this repo by default),
+# comments and blanks stripped, sources relative to that repo, so callers can
 # consume it with a plain `while read -r src dst`. This is why the manifest
 # forbids spaces in paths.
+#
+# An entry whose two columns both end in `/*` links a directory's children
+# one by one instead of the directory itself: the target becomes a real
+# directory that both repos can fill (~/.claude/skills holds skills from each).
+# It expands here, against the repo's current children, so every caller —
+# link, doctor, the push whitelist — sees plain one-to-one entries.
 read_manifest() {
-	[ -r "$DOTFILES_MANIFEST" ] || die "manifest not found: $DOTFILES_MANIFEST"
+	_repo=${1:-"$DOTFILES_DIR"}
+	_manifest="$_repo/manifest"
+	[ -r "$_manifest" ] || die "manifest not found: $_manifest"
 	# Globbing off: a stray * in the manifest must stay a literal, not expand
-	# against the current directory.
+	# against the current directory. It is switched back on only for the
+	# children of a `/*` entry, inside the repo.
 	set -f
 	while IFS= read -r line || [ -n "$line" ]; do
 		case $line in
@@ -65,26 +80,69 @@ read_manifest() {
 			warn "manifest: ignoring malformed line: $line"
 			continue
 		fi
-		printf '%s %s\n' "$1" "$2"
-	done <"$DOTFILES_MANIFEST"
+		case "$1|$2" in
+		*'/*|'*'/*')
+			_from=${1%/\*}
+			_to=${2%/\*}
+			set +f
+			for _child in "$_repo/$_from"/*; do
+				if [ -e "$_child" ]; then
+					printf '%s %s\n' "$_from/${_child##*/}" "$_to/${_child##*/}"
+				fi
+			done
+			set -f
+			;;
+		*'*'*) warn "manifest: \`/*\` must end both columns, ignoring: $line" ;;
+		*) printf '%s %s\n' "$1" "$2" ;;
+		esac
+	done <"$_manifest"
 	set +f
 }
 
-# Classify one target. Echoes one of: ok | missing | broken | foreign | absent-source
+# Emit "<absolute src> <dst>" for every link to maintain: this repo's
+# manifest, then the private companion's when it has one.
+read_links() {
+	read_manifest | while read -r _s _d; do
+		printf '%s %s\n' "$DOTFILES_DIR/$_s" "$_d"
+	done
+	if [ -r "$DOTFILES_PRIVATE_DIR/manifest" ]; then
+		read_manifest "$DOTFILES_PRIVATE_DIR" | while read -r _s _d; do
+			printf '%s %s\n' "$DOTFILES_PRIVATE_DIR/$_s" "$_d"
+		done
+	fi
+}
+
+# True when a path lies inside one of the two repos.
+in_a_repo() {
+	case $1 in
+	"$DOTFILES_DIR"/* | "$DOTFILES_PRIVATE_DIR"/*) return 0 ;;
+	esac
+	return 1
+}
+
+# Classify one target, given its absolute source. Echoes one of:
 #   ok            target is a symlink pointing at the repo source
 #   missing       nothing at the target path
 #   broken        symlink, but pointing somewhere else (or dangling)
 #   foreign       a real file/dir sits there instead of our symlink
 #   absent-source the repo does not have the source at all
+#   stale-parent  the target's directory is itself a link into a repo, left
+#                 from when the manifest linked that whole directory
+#                 (~/.claude/skills before it held both repos' skills). Checked
+#                 before anything else: through that link the target *is* the
+#                 repo's own copy, which `foreign` would back up and delete.
 link_state() {
-	_src="$DOTFILES_DIR/$1"
+	_src=$1
 	_dst="$HOME/$2"
 
 	[ -e "$_src" ] || {
 		printf 'absent-source\n'
 		return
 	}
-	if [ -L "$_dst" ]; then
+	_parent=$(dirname -- "$_dst")
+	if [ -L "$_parent" ] && in_a_repo "$(readlink -- "$_parent")"; then
+		printf 'stale-parent\n'
+	elif [ -L "$_dst" ]; then
 		_cur=$(readlink "$_dst")
 		if [ "$_cur" = "$_src" ]; then printf 'ok\n'; else printf 'broken\n'; fi
 	elif [ -e "$_dst" ]; then

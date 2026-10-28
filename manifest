@@ -13,12 +13,17 @@
 #   - a new file inside it is shared automatically,
 #   - directories are immune to the atomic-rewrite breakage that turns a
 #     symlinked *file* back into a regular file (see README).
+#
+# Except where an optional private companion repo (README) fills the same
+# directory: there `/*` at the end of both columns links each child on its
+# own, and the target is a real directory holding both repos' links. A new
+# child needs no manifest line, only a `dots link`.
 
 # --- Claude Code ----------------------------------------------------------
 home/claude/CLAUDE.md        .claude/CLAUDE.md
 home/claude/RTK.md           .claude/RTK.md
-home/claude/rules            .claude/rules
-home/claude/skills           .claude/skills
+home/claude/rules/*          .claude/rules/*
+home/claude/skills/*         .claude/skills/*
 home/claude/hooks            .claude/hooks
 # Claude Code rewrites this file itself (/config, /model). It is linked
 # anyway, and `dots doctor` repairs the link when that breaks it.

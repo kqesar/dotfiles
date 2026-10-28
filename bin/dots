@@ -7,6 +7,9 @@
 #   dots link      (re)create the symlinks described by `manifest`
 #   dots doctor    diagnose and repair the installation
 #
+# link, status and doctor also apply the manifest of the optional private
+# companion repo when it is cloned (lib/common.sh: read_links, README).
+#
 # Design notes worth knowing before editing:
 #
 #   - Nothing here commits automatically. `push` is interactive by design:
@@ -86,9 +89,10 @@ refresh_log() {
 	fi
 }
 
-# Number of manifest entries whose link is not in the expected state.
+# Number of manifest entries (both repos) whose link is not in the expected
+# state.
 count_bad_links() {
-	read_manifest | while read -r _s _d; do
+	read_links | while read -r _s _d; do
 		if [ "$(link_state "$_s" "$_d")" != ok ]; then printf 'x\n'; fi
 	done | wc -l | tr -d ' '
 }
@@ -198,10 +202,10 @@ cmd_status() {
 	printf '\n'
 	_bad=$(count_bad_links)
 	if [ "${_bad:-0}" -eq 0 ]; then
-		ok "all $(read_manifest | wc -l | tr -d ' ') links healthy"
+		ok "all $(read_links | wc -l | tr -d ' ') links healthy"
 	else
 		warn "$_bad link(s) need attention:"
-		read_manifest | while read -r _s _d; do
+		read_links | while read -r _s _d; do
 			_st=$(link_state "$_s" "$_d")
 			if [ "$_st" != ok ]; then printf '    %-30s %s\n' "~/$_d" "$_st"; fi
 		done
@@ -361,8 +365,9 @@ backup_path_for() {
 	printf '%s\n' "$_target"
 }
 
+# $1 is the absolute source, $2 the target relative to $HOME.
 link_one() {
-	_src="$DOTFILES_DIR/$1"
+	_src=$1
 	_dst="$HOME/$2"
 	_quiet=${3:-}
 
@@ -374,6 +379,14 @@ link_one() {
 	absent-source)
 		warn "not in the repo, skipped: $1"
 		return 0
+		;;
+	stale-parent)
+		# The directory used to be linked whole. Removing that link loses
+		# nothing — it is a link, and what it pointed at stays in the repo —
+		# and makes room for a real directory both repos can fill.
+		_parent=$(dirname -- "$_dst")
+		rm -f -- "$_parent"
+		info "    ~/${_parent#"$HOME"/} is now a directory (it was a link into a repo)"
 		;;
 	foreign | broken)
 		# Whatever sits there may be the only up-to-date copy. Copy it out
@@ -400,7 +413,10 @@ cmd_link() {
 	export DOTS_BACKUP
 
 	info "applying manifest:"
-	read_manifest | while read -r _s _d; do
+	if [ -r "$DOTFILES_PRIVATE_DIR/manifest" ]; then
+		dim "    (and the private companion's: $DOTFILES_PRIVATE_DIR)"
+	fi
+	read_links | while read -r _s _d; do
 		link_one "$_s" "$_d"
 	done
 
@@ -415,7 +431,7 @@ cmd_link() {
 cmd_link_quiet() {
 	DOTS_BACKUP="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 	export DOTS_BACKUP
-	read_manifest | while read -r _s _d; do
+	read_links | while read -r _s _d; do
 		link_one "$_s" "$_d" quiet >/dev/null 2>&1 || true
 	done
 }
@@ -449,6 +465,11 @@ cmd_doctor() {
 		err "no origin remote"
 		_problems=$((_problems + 1))
 	fi
+	if [ -r "$DOTFILES_PRIVATE_DIR/manifest" ]; then
+		ok "private companion: $DOTFILES_PRIVATE_DIR"
+	else
+		dim "no private companion repo at $DOTFILES_PRIVATE_DIR (optional)"
+	fi
 
 	printf '\n'
 	info "── shell hooks ──"
@@ -472,7 +493,7 @@ cmd_doctor() {
 	# Repaired one at a time, showing the diff first. A "foreign" file at a
 	# target may hold edits that exist nowhere else; deleting it silently
 	# would be the one unrecoverable thing this tool could do.
-	read_manifest | while read -r _s _d; do
+	read_links | while read -r _s _d; do
 		_st=$(link_state "$_s" "$_d")
 		case $_st in
 		ok)
@@ -484,14 +505,15 @@ cmd_doctor() {
 			continue
 			;;
 		missing) warn "~/$_d — not linked" ;;
+		stale-parent) warn "~/$_d — its directory is still a link into a repo: $(readlink "$(dirname -- "$HOME/$_d")")" ;;
 		broken) warn "~/$_d — symlink points elsewhere: $(readlink "$HOME/$_d")" ;;
 		foreign)
 			warn "~/$_d — a real file replaced the link (atomic rewrite?)"
-			if ! diff -q "$HOME/$_d" "$DOTFILES_DIR/$_s" >/dev/null 2>&1; then
+			if ! diff -q "$HOME/$_d" "$_s" >/dev/null 2>&1; then
 				dim "    its content differs from the repo version:"
-				diff -u "$DOTFILES_DIR/$_s" "$HOME/$_d" 2>/dev/null |
+				diff -u "$_s" "$HOME/$_d" 2>/dev/null |
 					head -30 | sed 's/^/    /' || true
-				dim "    to keep the local one:  cp ~/$_d $DOTFILES_DIR/$_s && dots link"
+				dim "    to keep the local one:  cp ~/$_d $_s && dots link"
 				continue
 			fi
 			dim "    identical to the repo version, safe to relink"
@@ -504,6 +526,33 @@ cmd_doctor() {
 			case $_a in [yY]*) link_one "$_s" "$_d" ;; esac
 		fi
 	done
+	# The loop runs in a pipeline subshell, so it cannot count for itself.
+	_bad=$(count_bad_links)
+	_problems=$((_problems + ${_bad:-0}))
+
+	# Two entries for one target would relink it back and forth forever.
+	_dups=$(read_links | cut -d' ' -f2 | sort | uniq -d)
+	if [ -n "$_dups" ]; then
+		for _d in $_dups; do err "~/$_d — claimed by both repos, rename one"; done
+		_problems=$((_problems + $(printf '%s\n' "$_dups" | wc -l)))
+	fi
+
+	# Links left behind in a shared directory (~/.claude/skills) when an
+	# entry leaves a repo: they dangle, and no manifest names them any more.
+	_stray=$(read_links | while read -r _s _d; do dirname -- "$HOME/$_d"; done |
+		sort -u | while read -r _dir; do
+			for _f in "$_dir"/* "$_dir"/.[!.]*; do
+				if [ -L "$_f" ] && [ ! -e "$_f" ] && in_a_repo "$(readlink -- "$_f")"; then
+					printf '%s\n' "$_f"
+				fi
+			done
+		done)
+	if [ -n "$_stray" ]; then
+		for _f in $_stray; do
+			warn "~/${_f#"$HOME"/} — dangling link into a repo, remove it: rm ~/${_f#"$HOME"/}"
+		done
+		_problems=$((_problems + $(printf '%s\n' "$_stray" | wc -l)))
+	fi
 
 	printf '\n'
 	info "── tracked files outside the manifest ──"
@@ -554,8 +603,10 @@ dots — dotfiles shared across machines
   dots doctor          full diagnostic, with guided repair
 
 Environment:
-  DOTFILES_DIR   repo location (default ~/dotfiles)
-  DOTFILES_TTL   seconds between background checks (default 14400)
+  DOTFILES_DIR          repo location (default ~/dotfiles)
+  DOTFILES_PRIVATE_DIR  optional private companion repo, whose manifest
+                        link/status/doctor also apply (default ~/dotfiles-private)
+  DOTFILES_TTL          seconds between background checks (default 14400)
 EOF
 }
 
