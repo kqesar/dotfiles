@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$HOME/.claude/hooks/wow-context.sh\""
+            "command": "bash \"$HOME/.claude/hooks/private-hook.sh\" session-start"
           }
         ]
       }
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$HOME/.claude/hooks/wow-lint.sh\""
+            "command": "bash \"$HOME/.claude/hooks/private-hook.sh\" post-edit"
           }
         ]
       }

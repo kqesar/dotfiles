@@ -109,6 +109,15 @@ describe.
 `.gitignore` blacklists the dangerous paths as well, but that is only a safety
 net. The whitelist is the guarantee.
 
+An entry usually links a whole file or directory. One whose two columns both
+end in `/*` links each child of the directory instead (`home/claude/skills/*`
+→ `~/.claude/skills/<name>`): the target is then a real directory that the
+private companion repo below can fill too. A new child needs no manifest line,
+only a `dots link`; until then the background check reports it as a missing
+link. A skill or rule created straight under `~/.claude/` lands in that real
+directory and stays local until you move it into one of the repos — the
+deliberate step where you pick public or private.
+
 This matters because `~/.claude/` holds things that must never reach a public
 repo: `.credentials.json` (the OAuth token), `projects/` (full transcripts of
 every session, including anything pasted in), `history.jsonl`, and
@@ -118,21 +127,65 @@ Deliberately excluded:
 
 | Path | Why |
 |---|---|
-| `~/.claude/settings.local.json` | Machine-local by design: absolute paths, per-session permission grants. Also where `autoMode` lives — see below. |
+| `~/.claude/settings.local.json` | Machine-local by design: absolute paths, permission grants. Claude Code reads it only for sessions started in `$HOME` (see below). |
 | `~/.claude/projects/*/memory/` | Content describes one machine (GPU, monitors) and would be wrong on the other. |
 | `~/.claude/plugins/` | 7 MB, reinstallable. |
 | `~/.config/fish/functions/{fisher,bass}.fish` | Plugin code, managed by fisher. The hand-written `nvm` helpers next to them *are* shared. |
 
 ### `settings.json` is split on purpose
 
-Claude Code merges `settings.json` (user scope) with `settings.local.json`
-(higher precedence). The shared file keeps only what is genuinely
-cross-machine — `model`, `effortLevel`, `theme`, `hooks` — while `autoMode` is
-kept local.
+`~/.claude/settings.json` is the only user-scope settings file: Claude Code has
+no user-level `settings.local.json`. The `~/.claude/settings.local.json` it
+writes permission grants into is the *project-local* file of sessions started
+in `$HOME`, and nowhere else
+([settings files and precedence](https://code.claude.com/docs/en/settings)).
+So the shared file keeps only what is genuinely cross-machine — `model`,
+`effortLevel`, `theme`, `hooks` — and machine-specific keys go through
+`--settings <file>`, which applies above user and project settings for that
+launch: here a machine-local `~/.config/dotfiles/claude-local.json`, passed by
+a `claude` wrapper defined in `local.fish`.
 
-`autoMode.environment` is derived from the machine it was generated on. Shared,
-it would differ on every machine and produce a permanent diff, on top of
-describing the setup in a public repo.
+`autoMode` is one of them. `autoMode.environment` is derived from the machine
+it was generated on. Shared, it would differ on every machine and produce a
+permanent diff, on top of describing the setup in a public repo.
+
+`--settings` only reaches launches that go through the wrapper, though, which
+is not good enough for hooks: a launch from another shell, an IDE or the
+desktop app would silently run without them. Hooks therefore stay in the
+shared file, and the private companion's hooks are reached through it (next
+section).
+
+## Private companion repo
+
+Some configuration is worth sharing between machines but not publishing. It
+lives in a second, private repo with the same layout and its own `manifest`,
+cloned at `~/dotfiles-private` (or wherever `DOTFILES_PRIVATE_DIR` points).
+When that clone exists, `dots link`, `dots status`, `dots doctor` and the
+background check apply its manifest after this one; when it does not, nothing
+changes. This repo never names what the companion holds.
+
+```sh
+gh repo clone <owner>/<private-repo> ~/dotfiles-private
+git -C ~/dotfiles-private config credential.helper '!gh auth git-credential'
+dots link && dots doctor
+```
+
+- **Skills and rules**: both manifests link children into the same real
+  directories (`~/.claude/skills`, `~/.claude/rules`). `dots doctor` flags a
+  name both repos claim, and a link left dangling when an entry leaves a repo.
+- **Hooks**: Claude Code reads user hooks only from `~/.claude/settings.json`,
+  so that file names one generic script,
+  [`private-hook.sh`](home/claude/hooks/private-hook.sh) `<entry>`, which
+  execs `~/.claude/hooks-private/<entry>.sh` from the companion when there is
+  one and does nothing otherwise. Entries: `session-start` (`SessionStart`)
+  and `post-edit` (`PostToolUse` on `Write|Edit`). Hook entries from every
+  settings level merge rather than replace each other
+  ([hooks](https://code.claude.com/docs/en/hooks)), but no other level is both
+  user-wide and private, and a plugin would have to be enabled from this
+  public file.
+- **Sync**: `dots push` and `dots sync` handle this repo only. The companion is
+  published and pulled with plain git (`git -C ~/dotfiles-private pull
+  --ff-only`), then `dots link` if an entry was added.
 
 ### One config, two machines
 
@@ -159,9 +212,13 @@ Mitigations:
   a month later.
 - `dots doctor` repairs it, but shows the diff first and never overwrites
   silently: the file sitting at the target may hold the only up-to-date copy.
-- Directories (`rules/`, `skills/`) are immune — nothing `rename()`s a
-  directory. That is why the manifest links whole directories wherever it can,
-  which also means a new file inside one is shared automatically.
+- Directories are immune — nothing `rename()`s a directory. That is why the
+  manifest links whole directories wherever it can, which also means a new
+  file inside one is shared automatically. Each skill is still one directory
+  link; each rule, since `rules/` is shared with the companion repo, is a file
+  link. Claude Code's Edit and Write tools refuse to write through a symlinked
+  file and write to its target instead, so its own edits keep the link
+  (observed on a file link, 2026-10-28).
 
 ## Claude Code status line
 
